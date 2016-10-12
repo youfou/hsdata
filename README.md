@@ -1,11 +1,21 @@
 # hs_data
 
-**炉石传说数据分析工具**
+**用数据玩炉石**
 
-快速收集和分析炉石传说的卡牌及玩家卡组数据
+快速收集和分析炉石传说的卡牌及卡组数据
 
-> 当前数据来源为网易炉石盒子
+## 一些截图 - 卡牌推荐分析
 
+> 根据卡组表现，找出单个职业中的优秀卡牌，并加以分析，输出为 xlsx 文件
+
+### 萨满
+![](https://github.com/youfou/hs_data/raw/master/images/career_cards_stats/shaman.png)
+
+### 猎人
+![](https://github.com/youfou/hs_data/raw/master/images/career_cards_stats/hunter.png)
+
+### 德鲁伊
+![](https://github.com/youfou/hs_data/raw/master/images/career_cards_stats/druid.png)
 
 ## 快速上手
 
@@ -40,6 +50,8 @@
     print('卡牌:', [(data.card(k).name, v) for k, v in deck.cards.items()])
 
     # 更多玩法请见 playground.py
+
+> 当前数据来源为网易炉石盒子
 
 ----
 
