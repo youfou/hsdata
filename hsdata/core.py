@@ -248,12 +248,14 @@ class Cards(list):
             return
 
         with open(json_path) as f:
-            json_path = json.load(f)
+            json_data = json.load(f)
 
         self.clear()
         self._index = dict()
 
-        for data in json_path:
+        logging.info('载入卡牌数据 ({})'.format(json_path))
+
+        for data in json_data:
             card = Card()
 
             for k, v in data.items():
@@ -486,9 +488,12 @@ class Decks(list):
             return
 
         with open(json_path) as f:
-            decks = json.load(f, object_hook=self.deck_hook_for_json_decoder)
+            json_data = json.load(f, object_hook=self.deck_hook_for_json_decoder)
             self.clear()
-            for deck in decks:
+
+            logging.info('载入卡组数据 ({})'.format(json_path))
+
+            for deck in json_data:
                 self.append(deck)
                 self._index[deck.id] = deck
 
