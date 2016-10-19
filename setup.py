@@ -14,7 +14,7 @@ except ImportError:
 
 setup(
     name='hsdata',
-    version='0.2.2',
+    version='0.2.3',
     packages=find_packages(),
     package_data={
         '': ['*.md'],
@@ -22,8 +22,8 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        'requests',
-        'scrapy'
+        'requests>=2.0',
+        'scrapy>=1.0'
     ],
     url='https://github.com/youfou/hsdata',
     license='Apache 2.0',
