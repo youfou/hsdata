@@ -1,57 +1,90 @@
-# hs_data
+# hsdata
 
 **用数据玩炉石**
 
 快速收集和分析炉石传说的卡牌及卡组数据
 
-## 一些截图 - 卡牌推荐分析
+## 运行环境
 
-> 根据卡组表现，找出单个职业中的优秀卡牌，并加以分析，输出为 xlsx 文件
+hsdata 使用 Python 3 编写，引入了 requests 和 scrapy 两个模块，理论上可以在所有支持以上两个模块的系统环境中运行。
 
-### 萨满
-![](https://github.com/youfou/hs_data/raw/master/images/career_cards_stats/shaman.png)
+## 如何安装
 
-### 猎人
-![](https://github.com/youfou/hs_data/raw/master/images/career_cards_stats/hunter.png)
+推荐使用 pip 安装
 
-### 德鲁伊
-![](https://github.com/youfou/hs_data/raw/master/images/career_cards_stats/druid.png)
+    pip install -U hsdata
+
+如果上面的命令无法安装，再试试
+
+    pip3 install -U hsdata
 
 ## 快速上手
 
-    from core import *
+    import hsdata
 
-    # 创建数据对象
-    data = Data()
-    # 更新数据，或使用 .load() 载入上次更新的数据
-    # data.update()
-    data.load()
+    # 获取卡组数据
+    decks = hsdata.HSBoxDecks()
+    # 若未找到本地数据，会自动从网络获取
+    print('从炉石盒子获取到', len(decks), '个卡组数据！')
 
-    # 搜索卡牌
-    found = data.search_card('萨隆', return_first=False)
-    print('找到卡牌:')
-    print(found, '\n')
+    # 更新卡组数据
+    # decks.update()
 
-    # 按条件搜索卡组
-    decks = data.search_decks(
-        career_id=career_converter('萨满', 'id'),
-        mode='标准',
-        min_win_rate=0.6,
-    )
-    print('找到卡组:')
-    print(decks, '\n')
+    # 搜索卡组
+    found = decks.search(
+        career='萨满',
+        mode=hsdata.MODE_STANDARD,
+        min_games=10000,
+        win_rate_top_n=5)
+    print('其中5个胜率最高的萨满卡组:')
+    for deck in found:
+        print('{}: {} 场, {:.2%} 胜'.format(
+            deck.name, deck.games, deck.win_rate))
 
-    # 查看卡组信息
-    deck = decks[0]
-    print(deck, '卡组信息:')
-    print('用户数:', deck.users)
-    print('使用次数:', deck.played)
-    print('胜率:', '{:.2%}'.format(deck.win_rate))
-    print('卡牌:', [(data.card(k).name, v) for k, v in deck.cards.items()])
+    # 查看卡组中的卡牌
+    print('其中第一个卡组用了这些卡牌')
+    print(found[0].cards)
 
-    # 更多玩法请见 playground.py
+运行结果类似这样
 
-> 当前数据来源为网易炉石盒子
+> 从炉石盒子获取到 1574 个卡组数据！  
+>   
+> 其中5个胜率最高的萨满卡组:  
+> 【黄金赛冠军】OmegaZero中速萨: 124830 场, 63.47% 胜  
+> 【欧服登顶】Janos 中速萨: 172444 场, 63.02% 胜  
+> 【EULC冠军】Pavel中速萨: 61187 场, 62.73% 胜  
+> 【欧服前50】Toymachine中速萨: 41754 场, 60.95% 胜  
+> 【外服登顶】Ownerism 中速萨: 152966 场, 60.94% 胜  
+>   
+> 其中第一个卡组用了这些卡牌  
+> Counter({<Card: 坑道穴居人 (LOE_018)>: 2,  
+> <Card: 大漩涡传送门 (KAR_073)>: 2,  
+> <Card: 碧蓝幼龙 (EX1_284)>: 2,  
+> <Card: 幽灵之爪 (KAR_063)>: 2,  
+> <Card: 火元素 (CS2_042)>: 2,  
+> <Card: 巴内斯 (KAR_114)>: 1,  
+> <Card: 银色侍从 (EX1_008)>: 1,  
+> <Card: 血法师萨尔诺斯 (EX1_012)>: 1,  
+> <Card: 野性狼魂 (EX1_248)>: 2,  
+> <Card: 法力之潮图腾 (EX1_575)>: 2,  
+> <Card: 深渊魔物 (OG_028)>: 2,  
+> <Card: 闪电箭 (EX1_238)>: 2,  
+> <Card: 雷霆崖勇士 (AT_049)>: 2,  
+> <Card: 火舌图腾 (EX1_565)>: 2,  
+> <Card: 图腾魔像 (AT_052)>: 2,  
+> <Card: 闪电风暴 (EX1_259)>: 1,  
+> <Card: 妖术 (EX1_246)>: 2})  
+
+以上只是个帮助入门的例子，发挥想象力，用它来探索更多吧！
+
+## 数据来源
+
+目前 hsdata 采用了以下数据来源，这些数据的版权为各数据源所有。
+
+* 卡牌数据
+    * [HearthstoneJSON](https://hearthstonejson.com/)
+* 卡组数据
+    * [网易炉石盒子](http://lushi.163.com/)
 
 ----
 
