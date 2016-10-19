@@ -49,7 +49,7 @@ GitHub: https://github.com/youfou/hsdata
 
 
 __title__ = 'hsdata'
-__version__ = '0.2.0.0'
+__version__ = '0.2.0.1'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'
@@ -59,8 +59,8 @@ import logging
 
 from .core import (
     Career, Careers, Card, Cards, Deck, Decks,
-    CAREERS, MODE_STANDARD, MODE_WILD, DATA_DIR,
-    set_main_language
+    MODE_STANDARD, MODE_WILD, CAREERS,
+    set_data_dir, set_main_language
 )
 from .hsbox import HSBoxDeck, HSBoxDecks
 

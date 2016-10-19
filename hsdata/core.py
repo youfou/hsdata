@@ -41,6 +41,11 @@ with open(os.path.join(PACKAGE_DIR, 'career_names.json')) as fp:
     CAREER_NAMES_ALL_LANGUAGES = json.load(fp)
 
 
+def set_data_dir(path):
+    global DATA_DIR
+    DATA_DIR = path
+
+
 def set_main_language(language):
     """
     设置主要语言，包括职业和卡牌的描述文本
