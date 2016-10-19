@@ -12,10 +12,6 @@ hsdata 使用 Python 3 编写，引用了 requests 和 scrapy 两个模块，理
 
 推荐使用 pip 安装
 
-    pip install -U hsdata
-
-如果上面的命令无法安装，再试试
-
     pip3 install -U hsdata
 
 ## 快速上手
