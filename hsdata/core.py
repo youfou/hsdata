@@ -445,9 +445,11 @@ class Decks(list):
 
     def update(self, json_path=None):
         """
-        从数据源获取卡组数据，需要由各子类实现
+        从数据源获取卡组数据
         :param json_path: 保存路径
         """
+
+        # 具体的获取过程由子类实现
         pass
 
     def save(self, json_path=None):

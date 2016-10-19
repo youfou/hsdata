@@ -43,6 +43,9 @@ class HSBoxDecks(Decks):
         :param json_path: JSON的保存路径
         """
 
+        if not json_path:
+            json_path = self.json_path
+
         logging.info('开始更新炉石盒子卡组数据，将保存到 {}'.format(json_path))
 
         # 卡组的主要信息
