@@ -20,7 +20,6 @@ lib64/
 parts/
 sdist/
 var/
-/MANIFEST
 *.egg-info/
 .installed.cfg
 *.egg

@@ -1,6 +1,6 @@
 import logging
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 readme_file = 'README.md'
 
@@ -8,15 +8,22 @@ try:
     import pypandoc
     long_description = pypandoc.convert(readme_file, to='rst')
 except ImportError:
-    logging.warn('pypandoc module not found, long_description will be the raw text.')
+    logging.warn('pypandoc module not found, long_description will be the raw text instead.')
     with open(readme_file) as fp:
         long_description = fp.read()
 
 setup(
     name='hsdata',
-    version='0.1',
-    packages=[
-        'hsdata'
+    version='0.2.0',
+    packages=find_packages(),
+    package_data={
+        '': ['*.md'],
+        'hsdata': ['career_names.json']
+    },
+    include_package_data=True,
+    install_requires=[
+        'requests',
+        'scrapy'
     ],
     url='https://github.com/youfou/hsdata',
     license='Apache 2.0',
@@ -29,7 +36,7 @@ setup(
         'Hearthstone',
         '数据'
     ],
-    classifiers=(
+    classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
@@ -37,9 +44,5 @@ setup(
         'Natural Language :: Chinese (Simplified)',
         'Topic :: Games/Entertainment :: Simulation',
         'Topic :: Scientific/Engineering :: Information Analysis'
-    ),
-    requires=[
-        'requests',
-        'scrapy'
     ]
 )

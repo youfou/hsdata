@@ -6,7 +6,7 @@
 
 ## 运行环境
 
-hsdata 使用 Python 3 编写，引入了 requests 和 scrapy 两个模块，理论上可以在所有支持以上两个模块的系统环境中运行。
+hsdata 使用 Python 3 编写，引用了 requests 和 scrapy 两个模块，理论上可以在所有支持这两个模块的系统环境中运行。
 
 ## 如何安装
 
