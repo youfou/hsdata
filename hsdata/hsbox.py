@@ -30,12 +30,26 @@ class HSBoxDeck(Deck):
     # 该类卡组的 source 属性
     source = SOURCE_NAME
 
+    def __init__(self):
+        super(HSBoxDeck, self).__init__()
+        self.ranked_games = None
+        self.ranked_wins = None
+        self.users = None
+
+    @property
+    def ranked_win_rate(self):
+        if self.ranked_games:
+            return self.ranked_wins / self.ranked_games
+
+    @property
+    def ranked_losses(self):
+        if self.ranked_games:
+            return self.ranked_games - (self.ranked_wins or 0)
+
 
 class HSBoxDecks(Decks):
     # 当从本地JSON载入卡组时，将把每个卡组转化为该类
     deck_class = HSBoxDeck
-    # 用于默认 json_path 文件名
-    source = SOURCE_NAME
 
     def update(self, json_path=None):
         """
@@ -117,12 +131,12 @@ class HSBoxDecks(Decks):
                         deck, num_of_cards))
 
             deck.updated_at = datetime.strptime(data.get('time'), '%Y-%m-%d %H:%M:%S')
-            deck.url = data.get('jump_url').strip()
+
+            if deck.id:
+                deck.url = 'http://hs.gameyw.netease.com/box_group_details.html?code={}'.format(deck.id)
 
             # 加入卡组合集
             self.append(deck)
-            # 加入卡组ID索引，用于 .get() 方法
-            self._index[deck.id] = deck
 
         crawler_process = CrawlerProcess({'ITEM_PIPELINES': {'hsdata.hsbox.HSBoxScrapyPipeline': 1}})
         crawler_process.crawl(HSBoxScrapySpider, decks=self)
@@ -178,7 +192,7 @@ class HSBoxScrapySpider(scrapy.Spider):
             yield item
 
 
-class HSBoxScrapyPipeline(object):
+class HSBoxScrapyPipeline:
     @staticmethod
     def process_item(item, spider):
         deck = spider.decks[item['deck_index']]

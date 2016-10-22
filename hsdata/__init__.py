@@ -49,7 +49,7 @@ GitHub: https://github.com/youfou/hsdata
 
 
 __title__ = 'hsdata'
-__version__ = '0.2.0.1'
+__version__ = '0.2.0.2'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'

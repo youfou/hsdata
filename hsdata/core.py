@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import webbrowser
 from collections import Counter
 from copy import deepcopy
 from datetime import datetime
@@ -37,57 +38,8 @@ SOURCE_URL_CARDS = 'https://api.hearthstonejson.com/v1/'
 
 PACKAGE_DIR = os.path.dirname(os.path.realpath(__file__))
 
-with open(os.path.join(PACKAGE_DIR, 'career_names.json')) as fp:
-    CAREER_NAMES_ALL_LANGUAGES = json.load(fp)
 
-
-def set_data_dir(path):
-    global DATA_DIR
-    DATA_DIR = path
-
-
-def set_main_language(language):
-    """
-    设置主要语言，包括职业和卡牌的描述文本
-    Set main language, including description texts for Career and Card objects
-    :param language: deDE, enUS, esES, esMX, frFR, itIT, jaJP, koKR, plPL, ptBR, ruRU, thTH, zhCN, zhTW
-    """
-
-    global MAIN_LANGUAGE, JSON_FILE_NAME_CARDS, CAREER_NAMES, CAREERS
-
-    CAREER_NAMES = CAREER_NAMES_ALL_LANGUAGES.get(language)
-    if not CAREER_NAMES:
-        raise ValueError('language: should in {}'.format(
-            ', '.join(CAREER_NAMES_ALL_LANGUAGES.keys())))
-
-    MAIN_LANGUAGE = language
-    JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(language)
-    CAREERS = Careers()
-
-
-def _split_keywords(keywords):
-    if isinstance(keywords, str):
-        keywords = re.findall(r'\w+', keywords)
-    return keywords
-
-
-def _all_keywords_in_text(keywords, text):
-    if isinstance(keywords, str):
-        keywords = _split_keywords(keywords)
-    for keyword in keywords:
-        if keyword.lower() not in text.lower():
-            return False
-    else:
-        return True
-
-
-def _prepare_dir(path):
-    file_dir = os.path.dirname(path)
-    if file_dir:
-        os.makedirs(file_dir, exist_ok=True)
-
-
-class Career(object):
+class Career:
     def __init__(self, class_name):
         self.class_name = class_name
 
@@ -140,7 +92,14 @@ class Careers(list):
         for class_name in self.CLASS_NAMES:
             career = Career(class_name)
             self.append(career)
-            self._index[class_name] = career
+
+    def append(self, career):
+        self._index[career.class_name] = career
+        return super(Careers, self).append(career)
+
+    def clear(self):
+        self._index.clear()
+        return super(Careers, self).clear()
 
     def get(self, class_name):
         """
@@ -156,6 +115,7 @@ class Careers(list):
         :param keywords: 关键词，可以是列表或字串
         :return: 单个职业
         """
+        CARDS.load_if_empty()
         keywords = _split_keywords(keywords)
 
         for career in self:
@@ -172,7 +132,7 @@ class Careers(list):
                     return career
 
 
-class Card(object):
+class Card:
     """单张卡牌"""
 
     def __init__(self):
@@ -233,7 +193,21 @@ class Cards(list):
         self._index = dict()
 
         self.update_if_not_found = update_if_not_found
-        self.load(self.json_path)
+
+    def append(self, card):
+        self._index[card.id] = card
+        return super(Cards, self).append(card)
+
+    def clear(self):
+        self._index.clear()
+        return super(Cards, self).clear()
+
+    def load_if_empty(self, json_path=None):
+        """
+        避免在模块初始化时执行载入(会产生文件)
+        """
+        if not self:
+            self.load(json_path)
 
     def load(self, json_path=None):
         """
@@ -256,9 +230,8 @@ class Cards(list):
             json_data = json.load(f)
 
         self.clear()
-        self._index = dict()
 
-        logging.info('载入卡牌数据 ({})'.format(json_path))
+        logging.info('载入卡牌数据 {}'.format(json_path))
 
         for data in json_data:
             card = Card()
@@ -279,7 +252,6 @@ class Cards(list):
                     Careers.CAREER_HEROES[card.playerClass].append(card.name)
 
             self.append(card)
-            self._index[card.id] = card
 
     def update(self, json_path=None, hs_version_code=None):
         """
@@ -327,6 +299,7 @@ class Cards(list):
         :param card_id: 卡牌 ID
         :return: 单张卡牌
         """
+        self.load_if_empty()
         return self._index.get(card_id)
 
     def search(
@@ -343,6 +316,8 @@ class Cards(list):
         :param return_first: 选项，只返回首个匹配的卡牌
         :return: 根据 return_first 参数返回 单个职业/None 或 列表
         """
+
+        self.load_if_empty()
 
         if in_name:
             name_keywords = _split_keywords(in_name)
@@ -380,7 +355,9 @@ class Cards(list):
         return found
 
 
-class Deck(object):
+class Deck:
+    source = None
+
     def __init__(self):
         self.name = None
         self.id = None
@@ -389,7 +366,6 @@ class Deck(object):
         self.mode = None
         self.cards = Counter()
 
-        self.source = None
         self.updated_at = None
         self.url = None
 
@@ -397,31 +373,60 @@ class Deck(object):
         self.wins = None
         self.draws = None
 
-        self.ranked_games = None
-        self.ranked_wins = None
-        self.ranked_draws = None
-
-        self.users = None
-
     @property
     def win_rate(self):
         if self.games:
             return self.wins / self.games
 
     @property
-    def ranked_win_rate(self):
-        if self.ranked_games:
-            return self.ranked_wins / self.ranked_games
-
-    @property
     def losses(self):
         if self.games:
             return self.games - (self.wins or 0) - (self.draws or 0)
 
-    @property
-    def ranked_losses(self):
-        if self.ranked_games:
-            return self.ranked_games - (self.ranked_wins or 0) - (self.ranked_draws or 0)
+    def to_dict(self):
+        """
+        用于保存为JSON
+        :return 字典对象
+        """
+        dct = deepcopy(self.__dict__)
+        dct['career'] = self.career.class_name
+        dct['updated_at'] = self.updated_at.strftime(DATE_TIME_FORMAT)
+
+        cards_dict = dict()
+        for card, count in self.cards.items():
+            cards_dict[card.id] = count
+        dct['cards'] = cards_dict
+
+        return dct
+
+    def from_dict(self, dct, cards=None):
+        """
+        用于从JSON读取
+        :param dct: 读取到的字典对象
+        :param cards: 用于将卡牌ID转化为卡牌对象
+        """
+
+        class_name = dct.pop('career')
+        updated_at = dct.pop('updated_at', '')
+        cards_dict = dct.pop('cards', dict())
+
+        self.career = CAREERS.get(class_name)
+        self.updated_at = datetime.strptime(updated_at, DATE_TIME_FORMAT)
+
+        if not cards:
+            cards = CARDS
+
+        for card_id, count in cards_dict.items():
+            self.cards[cards.get(card_id)] = count
+
+        for k, v in dct.items():
+            setattr(self, k, v)
+
+    def open(self):
+        if self.url:
+            webbrowser.open(self.url)
+        else:
+            logging.warning('无法在浏览器中打开{}，缺少URL'.format(self))
 
     def __repr__(self):
         return '<{}: {}>'.format(self.__class__.__name__, self.name)
@@ -429,13 +434,14 @@ class Deck(object):
 
 class Decks(list):
     deck_class = Deck
-    source = 'UNKNOWN'
 
     def __init__(self, json_path=None, update_if_not_found=True, cards=None):
         """
         :param cards: Cards 对象，用于将卡组内的卡牌ID转化为Card对象
         """
         super(Decks, self).__init__()
+
+        self.source = self.deck_class.source
 
         if not json_path:
             json_path = os.path.join(DATA_DIR, 'DECKS_{}.json'.format(self.source))
@@ -444,11 +450,19 @@ class Decks(list):
         self.update_if_not_found = update_if_not_found
 
         if not cards:
-            cards = Cards()
+            cards = CARDS
         self.cards = cards
         self._index = dict()
 
         self.load(self.json_path)
+
+    def append(self, deck):
+        self._index[deck.id] = deck
+        return super(Decks, self).append(deck)
+
+    def clear(self):
+        self._index.clear()
+        return super(Decks, self).clear()
 
     def update(self, json_path=None):
         """
@@ -468,11 +482,14 @@ class Decks(list):
         if not json_path:
             json_path = self.json_path
 
+        save_list = list()
+
+        for deck in self:
+            save_list.append(deck.to_dict())
+
         _prepare_dir(json_path)
         with open(json_path, 'w') as f:
-            json.dump(
-                self, f, ensure_ascii=False,
-                default=self.deck_default_for_json_encoder)
+            json.dump(save_list, f, ensure_ascii=False)
 
     def load(self, json_path=None):
         """
@@ -492,15 +509,16 @@ class Decks(list):
                     self.__class__.__name__))
             return
 
+        logging.info('载入卡组数据 {}'.format(json_path))
+
         with open(json_path) as f:
-            json_data = json.load(f, object_hook=self.deck_hook_for_json_decoder)
-            self.clear()
+            data_list = json.load(f)
 
-            logging.info('载入卡组数据 ({})'.format(json_path))
-
-            for deck in json_data:
-                self.append(deck)
-                self._index[deck.id] = deck
+        self.clear()
+        for deck_dict in data_list:
+            deck = self.deck_class()
+            deck.from_dict(deck_dict, self.cards)
+            self.append(deck)
 
     def get(self, deck_id):
         return self._index.get(deck_id)
@@ -533,41 +551,62 @@ class Decks(list):
 
         return found
 
-    @staticmethod
-    def deck_default_for_json_encoder(o):
-        if isinstance(o, Deck):
-            dct = deepcopy(o.__dict__)
-            dct['career'] = o.career.class_name
-            dct['updated_at'] = o.updated_at.strftime(DATE_TIME_FORMAT)
-            dct['cards'] = dict()
-            for card, count in o.cards.items():
-                dct['cards'][card.id] = count
-            return dct
 
-        return o.__dict__
+with open(os.path.join(PACKAGE_DIR, 'career_names.json')) as fp:
+    CAREER_NAMES_ALL_LANGUAGES = json.load(fp)
 
-    def deck_hook_for_json_decoder(self, dct):
-        if 'career' in dct and 'cards' in dct and 'updated_at' in dct:
 
-            deck = self.deck_class()
-            for k, v in dct.items():
-                if k not in ('career', 'cards', 'updated_at'):
-                    setattr(deck, k, v)
+def set_data_dir(path):
+    global DATA_DIR, CARDS
+    DATA_DIR = path
+    CARDS = Cards()
 
-            deck.career = CAREERS.get(dct.get('career'))
 
-            cards = dct.get('cards')
-            for card_id, count in cards.items():
-                deck.cards[self.cards.get(card_id)] = count
+def set_main_language(language):
+    """
+    设置主要语言，包括职业和卡牌的描述文本
+    Set main language, including description texts for Career and Card objects
+    :param language: deDE, enUS, esES, esMX, frFR, itIT, jaJP, koKR, plPL, ptBR, ruRU, thTH, zhCN, zhTW
+    """
 
-            deck.updated_at = datetime.strptime(dct.get('updated_at'), DATE_TIME_FORMAT)
+    global MAIN_LANGUAGE, JSON_FILE_NAME_CARDS, CAREER_NAMES, CAREERS, CARDS
 
-            return deck
+    CAREER_NAMES = CAREER_NAMES_ALL_LANGUAGES.get(language)
+    if not CAREER_NAMES:
+        raise ValueError('language: should in {}'.format(
+            ', '.join(CAREER_NAMES_ALL_LANGUAGES.keys())))
 
-        return dct
+    MAIN_LANGUAGE = language
+    JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(language)
+    CAREERS = Careers()
+    CARDS = Cards()
+
+
+def _split_keywords(keywords):
+    if isinstance(keywords, str):
+        keywords = re.findall(r'\w+', keywords)
+    return keywords
+
+
+def _all_keywords_in_text(keywords, text):
+    if isinstance(keywords, str):
+        keywords = _split_keywords(keywords)
+    for keyword in keywords:
+        if keyword.lower() not in text.lower():
+            return False
+    else:
+        return True
+
+
+def _prepare_dir(path):
+    file_dir = os.path.dirname(path)
+    if file_dir:
+        os.makedirs(file_dir, exist_ok=True)
 
 
 MAIN_LANGUAGE = 'zhCN'
 JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(MAIN_LANGUAGE)
 CAREER_NAMES = CAREER_NAMES_ALL_LANGUAGES.get(MAIN_LANGUAGE)
+
 CAREERS = Careers()
+CARDS = Cards()

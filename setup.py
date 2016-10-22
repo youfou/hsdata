@@ -8,13 +8,13 @@ try:
     import pypandoc
     long_description = pypandoc.convert(readme_file, to='rst')
 except ImportError:
-    logging.warn('pypandoc module not found, long_description will be the raw text instead.')
+    logging.warning('pypandoc module not found, long_description will be the raw text instead.')
     with open(readme_file, encoding='utf-8') as fp:
         long_description = fp.read()
 
 setup(
     name='hsdata',
-    version='0.2.0.1',
+    version='0.2.0.2',
     packages=find_packages(),
     package_data={
         '': ['*.md'],

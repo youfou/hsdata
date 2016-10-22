@@ -5,10 +5,14 @@ import hsdata
 
 
 class Tests(unittest.TestCase):
-
     def setUp(self):
         if hsdata.core.MAIN_LANGUAGE != 'zhCN':
             hsdata.set_main_language('zhCN')
+
+    @staticmethod
+    def remove_if_exists(path):
+        if os.path.exists(path):
+            os.remove(path)
 
     def test_career(self):
         career = hsdata.Career('MAGE')
@@ -40,17 +44,23 @@ class Tests(unittest.TestCase):
         cards = hsdata.Cards()
         found = cards.search('萨隆', '每 施放', return_first=False)
         self.assertEqual(len(found), 1)
-        card = cards.get('OG_134')
+        card = cards.get(found[0].id)
         self.assertEqual(found[0], card)
-        self.assertEqual(cards.search(in_text='每 召唤 随从 随机 敌方 伤害').name, '飞刀杂耍者')
+        self.assertEqual(cards.search(in_text='召唤 随从 随机 敌方 伤害').name, '飞刀杂耍者')
         self.assertIsNone(cards.search('关门放狗', career='mage'))
         self.assertIsInstance(cards.search('海盗', return_first=False), list)
 
     def test_cards_update(self):
-        test_json_path = 'p_cards_update_test.json'
-        cards = hsdata.Cards(test_json_path)
-        cards.update(hs_version_code=14366)
-        os.remove(test_json_path)
+        test_path = 'p_cards_update_test.json'
+
+        self.remove_if_exists(test_path)
+
+        try:
+            cards = hsdata.Cards(test_path)
+            cards.update(hs_version_code=14366)
+        finally:
+            self.remove_if_exists(test_path)
+
         self.assertEqual(cards.search('兽群 呼唤', '三种').cost, 8)
 
     def test_deck(self):
@@ -60,31 +70,46 @@ class Tests(unittest.TestCase):
         self.assertIsInstance(list(deck.cards.keys())[0], hsdata.Card)
         self.assertEqual(len(list(deck.cards.elements())), 30)
 
-    def test_decks(self):
-        decks1 = hsdata.HSBoxDecks()
-        decks_count1 = len(decks1)
-        os.remove(decks1.json_path)
-        decks2 = hsdata.HSBoxDecks()
-        decks_count2 = len(decks2)
-        self.assertGreaterEqual(decks_count2, decks_count1)
+    def test_hsbox_decks(self):
 
-        deck = decks1[100]
-        self.assertIs(decks1.get(deck.id), deck)
+        test_path = 'p_hsbox_decks_test.json'
+        self.remove_if_exists(test_path)
 
-        deck = decks2[1000]
-        self.assertIs(decks2.get(deck.id), deck)
+        try:
+            updated_decks = hsdata.HSBoxDecks(json_path=test_path)
+            updated_deck = updated_decks[100]
+            loaded_decks = hsdata.HSBoxDecks(json_path=test_path)
+            loaded_deck = loaded_decks.get(updated_deck.id)
+        finally:
+            self.remove_if_exists(test_path)
 
-        found = decks2.search('萨满', hsdata.MODE_STANDARD, 0.5, 500, 5000, 5)
+        self.assertEqual(len(updated_decks), len(loaded_decks))
+        self.assertEqual(updated_deck.cards, loaded_deck.cards)
+
+        self.assertIsNotNone(loaded_decks.source)
+        self.assertIsNotNone(loaded_deck.source)
+
+        self.assertTrue(
+            updated_decks.source ==
+            updated_deck.source ==
+            loaded_decks.source ==
+            loaded_deck.source
+        )
+
+        self.assertIs(loaded_decks.get(loaded_deck.id), loaded_deck)
+
+        found = loaded_decks.search('萨满', hsdata.MODE_STANDARD, 0.5, 1000, 10000, 5)
         self.assertLessEqual(len(found), 5)
         last_win_rate = 1
         for deck in found:
             self.assertEqual(deck.career, hsdata.CAREERS.get('SHAMAN'))
             self.assertEqual(deck.mode, hsdata.MODE_STANDARD)
             self.assertGreaterEqual(deck.win_rate, 0.5)
-            self.assertGreaterEqual(deck.users, 500)
-            self.assertGreaterEqual(deck.games, 5000)
+            self.assertGreaterEqual(deck.users, 1000)
+            self.assertGreaterEqual(deck.games, 10000)
             self.assertLessEqual(deck.win_rate, last_win_rate)
             last_win_rate = deck.win_rate
+
 
 if __name__ == '__main__':
     unittest.main()
