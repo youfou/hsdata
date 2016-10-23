@@ -579,14 +579,15 @@ class Decks(list):
         :return: 符合条件的卡组列表
         """
 
-        career = get_career(career)
+        if career:
+            career = get_career(career)
 
         def match(deck):
             if (not career or deck.career == career) \
                     and (not mode or deck.mode == mode) \
-                    and ((getattr(deck, 'win_rate', 0) or 0) >= min_win_rate) \
-                    and ((getattr(deck, 'users', 0) or 0) >= min_users) \
-                    and ((getattr(deck, 'games', 0) or 0) >= min_games):
+                    and ((getattr(deck, 'win_rate') or 0) >= min_win_rate) \
+                    and ((getattr(deck, 'users') or 0) >= min_users) \
+                    and ((getattr(deck, 'games') or 0) >= min_games):
                 return True
 
         found = list(filter(match, self))
