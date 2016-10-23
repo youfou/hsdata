@@ -564,7 +564,6 @@ class Decks(list):
             career=None,
             mode=None,
             min_win_rate=0.0,
-            min_users=0,
             min_games=0,
             win_rate_top_n=None,
     ):
@@ -573,7 +572,6 @@ class Decks(list):
         :param career: 职业
         :param mode: 模式，可以是 MODE_STANDARD 或 MODE_WILD
         :param min_win_rate: 最低胜率
-        :param min_users: 最少用户数
         :param min_games: 最少游戏次数
         :param win_rate_top_n: 将结果按胜率倒排，并截取其中的前 n 个，若为负数则返回所有卡组
         :return: 符合条件的卡组列表
@@ -585,9 +583,8 @@ class Decks(list):
         def match(deck):
             if (not career or deck.career == career) \
                     and (not mode or deck.mode == mode) \
-                    and ((getattr(deck, 'win_rate') or 0) >= min_win_rate) \
-                    and ((getattr(deck, 'users') or 0) >= min_users) \
-                    and ((getattr(deck, 'games') or 0) >= min_games):
+                    and ((deck.win_rate or 0) >= min_win_rate) \
+                    and ((deck.games or 0) >= min_games):
                 return True
 
         found = list(filter(match, self))
