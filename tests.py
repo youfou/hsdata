@@ -102,7 +102,7 @@ class Tests(unittest.TestCase):
 
         self.assertIs(loaded_decks.get(loaded_deck.id), loaded_deck)
 
-        found = loaded_decks.search('萨满', hsdata.MODE_STANDARD, 0.5, 1000, 10000, 5)
+        found = loaded_decks.search('萨满', hsdata.MODE_STANDARD, 0.5, 10000, 5)
         self.assertLessEqual(len(found), 5)
         last_win_rate = 1
         for deck in found:
