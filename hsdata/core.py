@@ -475,6 +475,8 @@ class Decks(list):
         if not cards:
             cards = CARDS
         self.cards = cards
+        self.cards.load_if_empty()
+
         self._index = dict()
 
         if auto_load:
