@@ -82,17 +82,21 @@ class HearthStatsDecks(Decks):
             update_if_not_found=False)
 
         self.session = requests.Session()
-        self.logged_in = False
+        self._logged_in = False
         self.search_url = None
 
         self.login(email, password)
+
+    @property
+    def logged_in(self):
+        return self._logged_in
 
     def update(self, json_path=None):
         logging.warning('该数据来源不支持 update 方法，请直接使用 search_online 方法')
 
     def login(self, email, password):
         if not email or not password:
-            self.logged_in = False
+            self._logged_in = False
             return
         logging.info('正在登录 HearthStats.net , 账号: {}'.format(email))
         r = self.session.post(
@@ -101,7 +105,7 @@ class HearthStatsDecks(Decks):
         )
         r.raise_for_status()
         if r.json().get('success'):
-            self.logged_in = True
+            self._logged_in = True
             logging.info('登录成功')
         else:
             raise Exception('登陆失败: {}'.format(r.json().get('message')))
@@ -125,7 +129,7 @@ class HearthStatsDecks(Decks):
         :param order_by: 正序或倒序
         """
 
-        if not self.logged_in:
+        if not self._logged_in:
             logging.warning('尚未登录账号')
             return
 
