@@ -1,7 +1,11 @@
-import unittest
+import logging
 import os
+import unittest
 
 import hsdata
+
+logging.getLogger('scrapy').propagate = True
+logging.getLogger('requests').propagate = True
 
 
 class Tests(unittest.TestCase):

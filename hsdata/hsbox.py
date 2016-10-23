@@ -76,6 +76,9 @@ class HSBoxDecks(Decks):
     # 当从本地JSON载入卡组时，将把每个卡组转化为该类
     deck_class = HSBoxDeck
 
+    def __init__(self, json_path=None, auto_load=True):
+        super(HSBoxDecks, self).__init__(json_path=json_path, auto_load=auto_load)
+
     def update(self, json_path=None):
         """
         从"炉石传说盒子"获取最新的卡组数据，并保存为JSON
@@ -165,6 +168,7 @@ class HSBoxScrapyItem(scrapy.Item):
 
 class HSBoxScrapySpider(scrapy.Spider):
     name = 'hsbox_results'
+    url_base = 'http://hs.gameyw.netease.com/hs/c/get-cg-info?&cgcode={}'
 
     def __init__(self, decks):
         super(HSBoxScrapySpider, self).__init__()
@@ -175,7 +179,7 @@ class HSBoxScrapySpider(scrapy.Spider):
 
         for deck in self.decks:
             request_list.append(scrapy.http.Request(
-                url=HSBoxDeck.DECK_URL_TEMPLATE.format(deck.id),
+                url=self.url_base.format(deck.id),
                 meta=dict(deck_index=self.decks.index(deck))
             ))
         return request_list

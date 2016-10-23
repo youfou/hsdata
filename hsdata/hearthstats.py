@@ -14,7 +14,7 @@ import requests
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
-from .core import Deck, Decks, CAREERS, DATE_TIME_FORMAT, CARDS
+from .core import Deck, Decks, CAREERS, DATE_TIME_FORMAT, CARDS, get_career
 
 # 该来源的标识
 SOURCE_NAME = 'HEARTHSTATS'
@@ -64,7 +64,7 @@ class HearthStatsDecks(Decks):
     # 当从本地JSON载入卡组时，将把每个卡组转化为该类
     deck_class = HearthStatsDeck
 
-    def __init__(self, email=None, password=None, auto_load=True):
+    def __init__(self, email=None, password=None, json_path=None, auto_load=True):
         """
         使用 HearthStats.net 数据源，必须先注册其网站账号后，并在登录后使用
         该数据源没有无需使用 update 方法，请通过 search_online 方法获取卡组数据
@@ -73,6 +73,7 @@ class HearthStatsDecks(Decks):
         :param password: 登录密码
         """
         super(HearthStatsDecks, self).__init__(
+            json_path=json_path,
             auto_load=auto_load,
             update_if_not_found=False)
 
@@ -127,14 +128,13 @@ class HearthStatsDecks(Decks):
         if not career:
             career = ''
         else:
-            if isinstance(career, str):
-                career = CAREERS.search(career)
+            career = get_career(career)
             career = CAREER_MAP[career.class_name]
 
         if not created_after:
             created_after = ''
         elif isinstance(created_after, datetime):
-            created_after = datetime.strftime(DATE_TIME_FORMAT)
+            created_after = created_after.strftime(DATE_TIME_FORMAT)
 
         qs = urlencode({
             'utf8': '✓',

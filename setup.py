@@ -14,7 +14,7 @@ except ImportError:
 
 setup(
     name='hsdata',
-    version='0.2.1.0',
+    version='0.2.2.0',
     packages=find_packages(),
     package_data={
         '': ['*.md'],

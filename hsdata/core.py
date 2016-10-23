@@ -56,7 +56,7 @@ class Career:
 
     @property
     def heroes(self):
-        return Careers.CAREER_HEROES.get(self.class_name)
+        return Careers.CAREER_HEROES.get(self.class_name, list())
 
     def __repr__(self):
         return '<{}: {} ({})>'.format(
@@ -342,10 +342,7 @@ class Cards(list):
             text_keywords = None
 
         if career:
-            if isinstance(career, str):
-                career = CAREERS.search(career)
-                if not career:
-                    raise Exception('Unknown career')
+            career = get_career(career)
 
         found = None if return_first else list()
 
@@ -404,6 +401,14 @@ class Deck:
     def url(self):
         if self.id:
             return self.DECK_URL_TEMPLATE.format(self.id)
+    
+    @property
+    def crafting_cost(self):
+        dust = 0
+        for card, count in self.cards.items():
+            if card.dust:
+                dust += card.dust[0] * count
+        return dust
 
     def to_dict(self):
         """
@@ -453,7 +458,7 @@ class Deck:
 class Decks(list):
     deck_class = Deck
 
-    def __init__(self, json_path=None, auto_load=True, update_if_not_found=True, cards=None):
+    def __init__(self, json_path=None, auto_load=False, update_if_not_found=True, cards=None):
         """
         :param cards: Cards 对象，用于将卡组内的卡牌ID转化为Card对象
         """
@@ -476,8 +481,19 @@ class Decks(list):
             self.load(self.json_path)
 
     def append(self, deck):
+        if not isinstance(deck, Deck):
+            raise TypeError('{} 只能追加 Deck 对象'.format(self.__class__.__name__))
         self._index[deck.id] = deck
         return super(Decks, self).append(deck)
+
+    def extend(self, decks):
+        for deck in decks:
+            self._index[deck.id] = deck
+        return super(Decks, self).extend(decks)
+
+    def remove(self, deck):
+        del self._index[deck.id]
+        return super(Decks, self).remove(deck)
 
     def clear(self):
         self._index.clear()
@@ -544,14 +560,24 @@ class Decks(list):
     def search(
             self,
             career=None,
-            mode=MODE_STANDARD,
+            mode=None,
             min_win_rate=0.0,
             min_users=0,
             min_games=0,
             win_rate_top_n=None,
     ):
-        if isinstance(career, str):
-            career = CAREERS.search(career)
+        """
+        在当前卡组合集中搜索符合条件的卡组
+        :param career: 职业
+        :param mode: 模式，可以是 MODE_STANDARD 或 MODE_WILD
+        :param min_win_rate: 最低胜率
+        :param min_users: 最少用户数
+        :param min_games: 最少游戏次数
+        :param win_rate_top_n: 将结果按胜率倒排，并截取其中的前 n 个，若为负数则返回所有卡组
+        :return: 符合条件的卡组列表
+        """
+
+        career = get_career(career)
 
         def match(deck):
             if (not career or deck.career == career) \
@@ -568,7 +594,85 @@ class Decks(list):
             if win_rate_top_n > 0:
                 found = found[:win_rate_top_n]
 
-        return found
+        ret = Decks()
+        ret.extend(found)
+        return ret
+
+    def career_cards_stats(
+            self, career, mode=MODE_STANDARD,
+            min_games=1000, top_win_rate_percentage=0.1
+    ):
+        """
+        统计指定职业和模式的卡牌数据，可在组建卡组时作为参考
+        1. 选取当前职业和模式中符合 top_win_rate_percentage, min_games 条件的所有卡组
+        2. 选取上述卡组中所用到的卡牌
+        3. 统计这些卡牌在所有当前职业和模式卡组中的表现数据
+
+        表现数据中包括
+        avg_count: 平均使用数量
+        avg_win_rate: 平均胜率(总胜率次数/总游戏次数)
+        total_games: 总游戏次数
+        used_in_decks: 用到该卡牌的卡组数
+
+        :param career: 职业
+        :param mode: 模式，可以是 MODE_STANDARD 或 MODE_WILD
+        :param min_games: 最少游戏次数
+        :param top_win_rate_percentage: 选取胜率最高的 n% 卡组，0.05 表示 5%
+        """
+
+        career = get_career(career)
+
+        top_decks = self.search(
+            career=career, mode=mode,
+            min_games=min_games, win_rate_top_n=-1)
+        top_decks = top_decks[:round(len(top_decks) * top_win_rate_percentage)]
+
+        top_cards = set()
+        for deck in top_decks:
+            top_cards.update(deck.cards)
+        top_cards = list(top_cards)
+
+        "total_count, total_games, total_wins, used_in_decks, avg_count, avg_win_rate"
+
+        cards_stats = dict()
+        for card in top_cards:
+            cards_stats[card] = dict(
+                total_count=0,
+                total_games=0,
+                total_wins=0,
+                used_in_decks=0,
+            )
+
+        for deck in self.search(career=career, mode=mode):
+            for card, count in deck.cards.items():
+                if card in top_cards:
+                    cards_stats[card]['total_count'] += count
+                    cards_stats[card]['total_games'] += deck.games or 0
+                    cards_stats[card]['total_wins'] += deck.wins or 0
+                    cards_stats[card]['used_in_decks'] += 1
+
+        for card, stats in cards_stats.items():
+            stats['avg_count'] = stats['total_count'] / stats['used_in_decks']
+            try:
+                stats['avg_win_rate'] = stats['total_wins'] / stats['total_games']
+            except ZeroDivisionError:
+                stats['avg_win_rate'] = None
+
+        return dict(cards_stats=cards_stats, top_decks=top_decks)
+
+    def __getitem__(self, item):
+        ret = super(Decks, self).__getitem__(item)
+        if isinstance(item, slice):
+            decks = Decks()
+            decks.extend(ret)
+            ret = decks
+        return ret
+
+    def __repr__(self):
+        return '<{}: {}>'.format(
+            self.__class__.__name__,
+            super(Decks, self).__repr__()
+        )
 
 
 with open(os.path.join(PACKAGE_DIR, 'career_names.json')) as fp:
@@ -621,6 +725,23 @@ def _prepare_dir(path):
     file_dir = os.path.dirname(path)
     if file_dir:
         os.makedirs(file_dir, exist_ok=True)
+
+
+def get_career(keywords_or_career=None):
+    """
+    获取指定职业(Career)对象
+    :param keywords_or_career: 指定职业的关键词或Career对象
+    :return: 职业(Career)对象
+    """
+    if isinstance(keywords_or_career, Career):
+        career = keywords_or_career
+    elif isinstance(keywords_or_career, (str, list, type(None))):
+        career = CAREERS.search(keywords_or_career)
+    else:
+        raise TypeError('不支持使用 {} 作为参数'.format(
+            type(keywords_or_career).__name__))
+
+    return career
 
 
 MAIN_LANGUAGE = 'zhCN'
