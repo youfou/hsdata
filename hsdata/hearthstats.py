@@ -75,8 +75,11 @@ class HearthStatsDecks(Decks):
         super(HearthStatsDecks, self).__init__(
             auto_load=auto_load,
             update_if_not_found=False)
+
         self.session = requests.Session()
         self.logged_in = False
+        self.search_url = None
+
         self.login(email, password)
 
     def update(self, json_path=None):
@@ -145,11 +148,11 @@ class HearthStatsDecks(Decks):
             'commit': 'Apply',
         })
 
-        search_url = 'http://hearthstats.net/decks/search?{}'.format(qs)
+        self.search_url = 'http://hearthstats.net/decks/search?{}'.format(qs)
 
-        logging.info('正在获取搜索结果列表')
+        logging.info('正在搜索卡组')
 
-        r = self.session.get(search_url)
+        r = self.session.get(self.search_url)
         r.raise_for_status()
 
         deck_ids = re.findall(r'(?<=href="/decks/)[^/]+(?=/public_show)', r.text)
@@ -158,7 +161,7 @@ class HearthStatsDecks(Decks):
             logging.info('未找到符合条件的卡组，试试放宽条件吧')
             return
 
-        logging.info('找到{}个卡组，开始获取卡组详细数据'.format(len(deck_ids)))
+        logging.info('找到{}个卡组，开始获取卡组数据'.format(len(deck_ids)))
 
         self.clear()
 
@@ -166,7 +169,9 @@ class HearthStatsDecks(Decks):
         crawler_process.crawl(HearthStatsScrapySpider, decks=self, deck_ids=deck_ids)
         crawler_process.start()
 
-        logging.info('完成，获得卡组 {}/{}'.format(
+        self.sort(key=lambda x: deck_ids.index(x.id))
+
+        logging.info('卡组数据获取完成 {}/{}'.format(
             len(deck_ids), len(self)
         ))
 

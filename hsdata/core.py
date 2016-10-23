@@ -556,9 +556,9 @@ class Decks(list):
         def match(deck):
             if (not career or deck.career == career) \
                     and (not mode or deck.mode == mode) \
-                    and ((deck.win_rate or 0.0) >= min_win_rate) \
-                    and (getattr(deck, 'users', 0) >= min_users) \
-                    and ((deck.games or 0) >= min_games):
+                    and ((getattr(deck, 'win_rate', 0) or 0) >= min_win_rate) \
+                    and ((getattr(deck, 'users', 0) or 0) >= min_users) \
+                    and ((getattr(deck, 'games', 0) or 0) >= min_games):
                 return True
 
         found = list(filter(match, self))
