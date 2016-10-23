@@ -81,6 +81,7 @@ hsdata 使用 Python 3 编写，引用了 requests 和 scrapy 两个模块，理
     * [HearthstoneJSON](https://hearthstonejson.com/)
 * 卡组数据
     * [网易炉石盒子](http://lushi.163.com/)
+    * [HearthStats](http://hearthstats.net/)
 
 ----
 

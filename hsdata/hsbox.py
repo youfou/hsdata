@@ -16,7 +16,7 @@ import scrapy
 import scrapy.utils.log
 from scrapy.crawler import CrawlerProcess
 
-from .core import Deck, Decks, CAREERS, MODE_STANDARD, MODE_WILD
+from .core import Deck, Decks, CAREERS, DATE_TIME_FORMAT
 
 # 该来源的标识
 SOURCE_NAME = 'HSBOX'
@@ -24,17 +24,31 @@ SOURCE_NAME = 'HSBOX'
 # 默认的载入和保存文件名，将与 DATA_DIR 拼接
 JSON_FILE_NAME = 'Decks_{}.json'.format(SOURCE_NAME)
 
+CAREER_MAP = {
+    1: CAREERS.get('WARRIOR'),
+    2: CAREERS.get('SHAMAN'),
+    3: CAREERS.get('ROGUE'),
+    4: CAREERS.get('PALADIN'),
+    5: CAREERS.get('HUNTER'),
+    6: CAREERS.get('DRUID'),
+    7: CAREERS.get('WARLOCK'),
+    8: CAREERS.get('MAGE'),
+    9: CAREERS.get('PRIEST'),
+}
+
 
 class HSBoxDeck(Deck):
     # from: http://hs.gameyw.netease.com/box_groups.html
     # 该类卡组的 source 属性
     source = SOURCE_NAME
+    DECK_URL_TEMPLATE = 'http://hs.gameyw.netease.com/box_group_details.html?code={}'
 
     def __init__(self):
         super(HSBoxDeck, self).__init__()
         self.ranked_games = None
         self.ranked_wins = None
         self.users = None
+        self.created_at = None
 
     @property
     def ranked_win_rate(self):
@@ -45,6 +59,17 @@ class HSBoxDeck(Deck):
     def ranked_losses(self):
         if self.ranked_games:
             return self.ranked_games - (self.ranked_wins or 0)
+
+    def to_dict(self):
+        dct = super(HSBoxDeck, self).to_dict()
+        dct['created_at'] = self.created_at.strftime(DATE_TIME_FORMAT)
+        return dct
+
+    def from_dict(self, dct, cards=None):
+        created_at = dct.pop('created_at')
+        if created_at:
+            self.created_at = datetime.strptime(created_at, DATE_TIME_FORMAT)
+        super(HSBoxDeck, self).from_dict(dct, cards)
 
 
 class HSBoxDecks(Decks):
@@ -64,18 +89,6 @@ class HSBoxDecks(Decks):
 
         # 卡组的主要信息
         url_data = 'http://hs.gameyw.netease.com/json/pm20835.js'
-
-        careers_dict = {
-            1: CAREERS.get('WARRIOR'),
-            2: CAREERS.get('SHAMAN'),
-            3: CAREERS.get('ROGUE'),
-            4: CAREERS.get('PALADIN'),
-            5: CAREERS.get('HUNTER'),
-            6: CAREERS.get('DRUID'),
-            7: CAREERS.get('WARLOCK'),
-            8: CAREERS.get('MAGE'),
-            9: CAREERS.get('PRIEST'),
-        }
 
         rp_json_in_js = re.compile(r'var\s+(\w+)\s*=\s*(.+);')
         session = requests.Session()
@@ -111,11 +124,7 @@ class HSBoxDecks(Decks):
                 # 炉石盒子BUG，该卡组引用了一张不存在的卡牌ID
                 continue
 
-            deck.career = careers_dict.get(get_num(data, 'job'))
-            if data.get('game_mode') == '标准':
-                deck.mode = MODE_STANDARD
-            elif data.get('game_mode') == '狂野':
-                deck.mode = MODE_WILD
+            deck.career = CAREER_MAP.get(get_num(data, 'job'))
 
             for card_count in data['deckString']['toPage'].split(','):
                 card_id, count = card_count.split(':')
@@ -130,10 +139,7 @@ class HSBoxDecks(Decks):
                     raise ValueError('{} 的卡牌数量为 {}，应为 30'.format(
                         deck, num_of_cards))
 
-            deck.updated_at = datetime.strptime(data.get('time'), '%Y-%m-%d %H:%M:%S')
-
-            if deck.id:
-                deck.url = 'http://hs.gameyw.netease.com/box_group_details.html?code={}'.format(deck.id)
+            deck.created_at = datetime.strptime(data.get('time'), '%Y-%m-%d %H:%M:%S')
 
             # 加入卡组合集
             self.append(deck)
@@ -159,7 +165,6 @@ class HSBoxScrapyItem(scrapy.Item):
 
 class HSBoxScrapySpider(scrapy.Spider):
     name = 'hsbox_results'
-    url_base = 'http://hs.gameyw.netease.com/hs/c/get-cg-info?&cgcode={}'
 
     def __init__(self, decks):
         super(HSBoxScrapySpider, self).__init__()
@@ -170,7 +175,7 @@ class HSBoxScrapySpider(scrapy.Spider):
 
         for deck in self.decks:
             request_list.append(scrapy.http.Request(
-                url=self.url_base.format(deck.id),
+                url=HSBoxDeck.DECK_URL_TEMPLATE.format(deck.id),
                 meta=dict(deck_index=self.decks.index(deck))
             ))
         return request_list

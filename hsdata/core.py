@@ -23,7 +23,6 @@ import re
 import webbrowser
 from collections import Counter
 from copy import deepcopy
-from datetime import datetime
 
 import requests
 
@@ -115,8 +114,15 @@ class Careers(list):
         :param keywords: 关键词，可以是列表或字串
         :return: 单个职业
         """
+
+        if not keywords:
+            return self.get('NEUTRAL')
+
+        # 需要载入卡牌来填充各职业的英雄关键词
         CARDS.load_if_empty()
-        keywords = _split_keywords(keywords)
+
+        if isinstance(keywords, str):
+            keywords = _split_keywords(keywords)
 
         for career in self:
             if _all_keywords_in_text(keywords, career.class_name):
@@ -130,6 +136,8 @@ class Careers(list):
             for hero in career.heroes:
                 if _all_keywords_in_text(keywords, hero):
                     return career
+
+        raise ValueError('找不到所需的职业: "{}"'.format(' '.join(keywords)))
 
 
 class Card:
@@ -179,10 +187,11 @@ class Cards(list):
     卡牌合集，附带一些实用的方法
     """
 
-    def __init__(self, json_path=None, update_if_not_found=True):
+    def __init__(self, json_path=None, update_if_not_found=True, lazy_load=False):
         """
         :param json_path: 读取或保存的JSON路径
         :param update_if_not_found: 选项，若上述文件不存在，则自动更新
+        :param lazy_load: 选项，若为True，则在初始化时不载入实际数据，直到调用 get 或 search 方法
         """
         super(Cards, self).__init__()
 
@@ -193,6 +202,9 @@ class Cards(list):
         self._index = dict()
 
         self.update_if_not_found = update_if_not_found
+
+        if not lazy_load:
+            self.load()
 
     def append(self, card):
         self._index[card.id] = card
@@ -357,17 +369,14 @@ class Cards(list):
 
 class Deck:
     source = None
+    DECK_URL_TEMPLATE = None
 
     def __init__(self):
         self.name = None
         self.id = None
 
         self.career = None
-        self.mode = None
         self.cards = Counter()
-
-        self.updated_at = None
-        self.url = None
 
         self.games = None
         self.wins = None
@@ -383,6 +392,19 @@ class Deck:
         if self.games:
             return self.games - (self.wins or 0) - (self.draws or 0)
 
+    @property
+    def mode(self):
+        for card in self.cards:
+            if card.set in EXPIRED_SETS:
+                return MODE_WILD
+        else:
+            return MODE_STANDARD
+
+    @property
+    def url(self):
+        if self.id:
+            return self.DECK_URL_TEMPLATE.format(self.id)
+
     def to_dict(self):
         """
         用于保存为JSON
@@ -390,7 +412,6 @@ class Deck:
         """
         dct = deepcopy(self.__dict__)
         dct['career'] = self.career.class_name
-        dct['updated_at'] = self.updated_at.strftime(DATE_TIME_FORMAT)
 
         cards_dict = dict()
         for card, count in self.cards.items():
@@ -407,11 +428,8 @@ class Deck:
         """
 
         class_name = dct.pop('career')
-        updated_at = dct.pop('updated_at', '')
         cards_dict = dct.pop('cards', dict())
-
         self.career = CAREERS.get(class_name)
-        self.updated_at = datetime.strptime(updated_at, DATE_TIME_FORMAT)
 
         if not cards:
             cards = CARDS
@@ -435,7 +453,7 @@ class Deck:
 class Decks(list):
     deck_class = Deck
 
-    def __init__(self, json_path=None, update_if_not_found=True, cards=None):
+    def __init__(self, json_path=None, auto_load=True, update_if_not_found=True, cards=None):
         """
         :param cards: Cards 对象，用于将卡组内的卡牌ID转化为Card对象
         """
@@ -454,7 +472,8 @@ class Decks(list):
         self.cards = cards
         self._index = dict()
 
-        self.load(self.json_path)
+        if auto_load:
+            self.load(self.json_path)
 
     def append(self, deck):
         self._index[deck.id] = deck
@@ -491,6 +510,8 @@ class Decks(list):
         with open(json_path, 'w') as f:
             json.dump(save_list, f, ensure_ascii=False)
 
+        logging.info('已保存到 {}'.format(json_path))
+
     def load(self, json_path=None):
         """
         从JSON文件中载入卡组合集
@@ -504,9 +525,6 @@ class Decks(list):
             if self.update_if_not_found:
                 logging.info('未找到卡组数据，将自动获取最新的数据')
                 self.update(json_path)
-            else:
-                logging.warning('未找到卡牌数据，请使用 {}().update() 获取最新的数据'.format(
-                    self.__class__.__name__))
             return
 
         logging.info('载入卡组数据 {}'.format(json_path))
@@ -526,7 +544,7 @@ class Decks(list):
     def search(
             self,
             career=None,
-            mode=None,
+            mode=MODE_STANDARD,
             min_win_rate=0.0,
             min_users=0,
             min_games=0,
@@ -539,7 +557,7 @@ class Decks(list):
             if (not career or deck.career == career) \
                     and (not mode or deck.mode == mode) \
                     and ((deck.win_rate or 0.0) >= min_win_rate) \
-                    and ((deck.users or 0) >= min_users) \
+                    and (getattr(deck, 'users', 0) >= min_users) \
                     and ((deck.games or 0) >= min_games):
                 return True
 
@@ -547,7 +565,8 @@ class Decks(list):
 
         if win_rate_top_n:
             found.sort(key=lambda x: x.win_rate or 0, reverse=True)
-            found = found[:win_rate_top_n]
+            if win_rate_top_n > 0:
+                found = found[:win_rate_top_n]
 
         return found
 
@@ -559,7 +578,7 @@ with open(os.path.join(PACKAGE_DIR, 'career_names.json')) as fp:
 def set_data_dir(path):
     global DATA_DIR, CARDS
     DATA_DIR = path
-    CARDS = Cards()
+    CARDS = Cards(lazy_load=True)
 
 
 def set_main_language(language):
@@ -579,7 +598,7 @@ def set_main_language(language):
     MAIN_LANGUAGE = language
     JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(language)
     CAREERS = Careers()
-    CARDS = Cards()
+    CARDS = Cards(lazy_load=True)
 
 
 def _split_keywords(keywords):
@@ -609,4 +628,8 @@ JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(MAIN_LANGUAGE)
 CAREER_NAMES = CAREER_NAMES_ALL_LANGUAGES.get(MAIN_LANGUAGE)
 
 CAREERS = Careers()
-CARDS = Cards()
+CARDS = Cards(lazy_load=True)
+
+# 用于判断卡组模式：若卡组中包含已过期卡包的卡牌，则认为是狂野模式
+# 这个列表需要跟随游戏不断更新！
+EXPIRED_SETS = ('REWARD', 'NAXX', 'GVG', 'TB')

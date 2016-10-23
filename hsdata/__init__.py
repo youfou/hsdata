@@ -47,21 +47,20 @@ GitHub: https://github.com/youfou/hsdata
 
 """
 
-
 __title__ = 'hsdata'
-__version__ = '0.2.0.2'
+__version__ = '0.2.1.0'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'
-
 
 import logging
 
 from .core import (
     Career, Careers, Card, Cards, Deck, Decks,
     MODE_STANDARD, MODE_WILD, CAREERS,
-    set_data_dir, set_main_language
+    set_data_dir, set_main_language,
 )
+from .hearthstats import HearthStatsDeck, HearthStatsDecks
 from .hsbox import HSBoxDeck, HSBoxDecks
 
 logging.getLogger('scrapy').propagate = False
