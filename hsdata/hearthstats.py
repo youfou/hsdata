@@ -107,6 +107,15 @@ class HearthStatsDecks(Decks):
             sort_by=SORT_BY_WIN_RATE,
             order_by=ORDER_BY_DESC,
     ):
+        """
+        在 hearthstats 网站中搜索卡组
+        :param career: 职业
+        :param created_after: 在 XXXX-XX-XX 后创建
+        :param min_games: 最少游戏次数
+        :param name: 卡组名称
+        :param sort_by: 排列方式
+        :param order_by: 正序或倒序
+        """
 
         if not self.logged_in:
             logging.warning('尚未登录账号')
