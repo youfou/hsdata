@@ -48,7 +48,7 @@ GitHub: https://github.com/youfou/hsdata
 """
 
 __title__ = 'hsdata'
-__version__ = '0.2.2.0'
+__version__ = '0.2.2.1'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'
@@ -60,7 +60,7 @@ from .core import (
     MODE_STANDARD, MODE_WILD, CAREERS,
     set_data_dir, set_main_language, get_career
 )
-from .hearthstats import HearthStatsDeck, HearthStatsDecks
+from .hearthstats import HearthStatsDeck, HearthStatsDecks, days_ago
 from .hsbox import HSBoxDeck, HSBoxDecks
 
 logging.getLogger('scrapy').propagate = False

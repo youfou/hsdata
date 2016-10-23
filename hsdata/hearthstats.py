@@ -7,7 +7,7 @@ HearthStats.net 的卡组和卡组合集类
 import logging
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 import requests
@@ -47,6 +47,10 @@ CAREER_MAP = {
     'WARLOCK': 8,
     'WARRIOR': 9,
 }
+
+
+def days_ago(n):
+    return datetime.today() - timedelta(days=n)
 
 
 class HearthStatsDeck(Deck):
@@ -105,8 +109,8 @@ class HearthStatsDecks(Decks):
     def search_online(
             self,
             career=None,
-            created_after=None,
-            min_games=0,
+            created_after=days_ago(30),
+            min_games=300,
             name='',
             sort_by=SORT_BY_WIN_RATE,
             order_by=ORDER_BY_DESC,
