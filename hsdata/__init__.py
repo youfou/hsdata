@@ -47,12 +47,6 @@ GitHub: https://github.com/youfou/hsdata
 
 """
 
-__title__ = 'hsdata'
-__version__ = '0.2.8'
-__author__ = 'Youfou'
-__license__ = 'Apache 2.0'
-__copyright__ = 'Copyright 2016 Youfou'
-
 import logging
 
 from .core import (
@@ -62,7 +56,16 @@ from .core import (
 )
 from .hearthstats import HearthStatsDeck, HearthStatsDecks, days_ago
 from .hsbox import HSBoxDeck, HSBoxDecks
+from .utils import (
+    diff_decks, gen_deck, decks_expired
+)
 
 logging.getLogger('scrapy').propagate = False
 logging.getLogger('requests').propagate = False
 logging.basicConfig(level=logging.INFO)
+
+__title__ = 'hsdata'
+__version__ = '0.2.9'
+__author__ = 'Youfou'
+__license__ = 'Apache 2.0'
+__copyright__ = 'Copyright 2016 Youfou'

@@ -490,6 +490,8 @@ class Decks(list):
 
     def extend(self, decks):
         for deck in decks:
+            if not isinstance(deck, Deck):
+                raise TypeError('应为 Deck 对象，得到了 {}'.format(type(deck).__name__))
             self._index[deck.id] = deck
         return super(Decks, self).extend(decks)
 
