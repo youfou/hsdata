@@ -594,9 +594,7 @@ class Decks(list):
             if win_rate_top_n > 0:
                 found = found[:win_rate_top_n]
 
-        ret = Decks()
-        ret.extend(found)
-        return ret
+        return found
 
     def career_cards_stats(
             self, career, mode=MODE_STANDARD,
@@ -658,7 +656,7 @@ class Decks(list):
             except ZeroDivisionError:
                 stats['avg_win_rate'] = None
 
-        return dict(cards_stats=cards_stats, top_decks=top_decks)
+        return cards_stats, top_decks
 
     def __getitem__(self, item):
         ret = super(Decks, self).__getitem__(item)
