@@ -57,7 +57,7 @@ import logging
 
 from .core import (
     Career, Careers, Card, Cards, Deck, Decks,
-    MODE_STANDARD, MODE_WILD, CAREERS,
+    MODE_STANDARD, MODE_WILD, CAREERS, CARDS,
     set_data_dir, set_main_language, get_career
 )
 from .hearthstats import HearthStatsDeck, HearthStatsDecks, days_ago

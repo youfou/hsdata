@@ -98,7 +98,7 @@ class HearthStatsDecks(Decks):
         if not email or not password:
             self._logged_in = False
             return
-        logging.info('正在登录 HearthStats.net , 账号: {}'.format(email))
+        logging.info('正在登录 HearthStats.net')
         r = self.session.post(
             url='http://hearthstats.net/api/v3/users/sign_in',
             json=dict(user_login=dict(email=email, password=password))
