@@ -7,14 +7,18 @@ HearthStats.net 的卡组和卡组合集类
 import logging
 import re
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import urlencode
 
 import requests
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
-from .core import Deck, Decks, CAREERS, DATE_TIME_FORMAT, CARDS, get_career
+from .core import (
+    DATE_TIME_FORMAT,
+    Deck, Decks, CAREERS, CARDS,
+    get_career, days_ago
+)
 
 # 该来源的标识
 SOURCE_NAME = 'HEARTHSTATS'
@@ -47,10 +51,6 @@ CAREER_MAP = {
     'WARLOCK': 8,
     'WARRIOR': 9,
 }
-
-
-def days_ago(n):
-    return datetime.today() - timedelta(days=n)
 
 
 class HearthStatsDeck(Deck):

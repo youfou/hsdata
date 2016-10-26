@@ -23,6 +23,7 @@ import re
 import webbrowser
 from collections import Counter
 from copy import deepcopy
+from datetime import datetime, timedelta
 
 import requests
 
@@ -65,7 +66,11 @@ class Career:
             self.class_name)
 
     def __eq__(self, other):
-        return self.class_name == other.class_name
+        if isinstance(other, Career):
+            return self.class_name == other.class_name
+
+    def __hash__(self):
+        return hash('<__hsdata.Career__: class_name="{}">'.format(self.class_name))
 
 
 class Careers(list):
@@ -179,7 +184,7 @@ class Card:
         return self.id.lower() == other.id.lower()
 
     def __hash__(self):
-        return hash('<__hs_card__: name="{}", id="{}">'.format(self.name, self.id))
+        return hash('<__hs.Card__: name="{}", id="{}">'.format(self.name, self.id))
 
 
 class Cards(list):
@@ -317,7 +322,7 @@ class Cards(list):
     def search(
             self,
             in_name=None, in_text=None, career=None,
-            collectible=None, return_first=True
+            cost=None, collectible=None, return_first=True
     ):
         """
         根据指定条件搜索卡牌
@@ -352,6 +357,8 @@ class Cards(list):
             elif text_keywords and not _all_keywords_in_text(text_keywords, card.text or ''):
                 continue
             elif career and not card.career == career:
+                continue
+            elif cost is not None and not card.cost == cost:
                 continue
             elif collectible is not None and not card.collectible == collectible:
                 continue
@@ -401,7 +408,7 @@ class Deck:
     def url(self):
         if self.id:
             return self.DECK_URL_TEMPLATE.format(self.id)
-    
+
     @property
     def crafting_cost(self):
         dust = 0
@@ -742,6 +749,10 @@ def get_career(keywords_or_career=None):
             type(keywords_or_career).__name__))
 
     return career
+
+
+def days_ago(n):
+    return datetime.today() - timedelta(days=n)
 
 
 MAIN_LANGUAGE = 'zhCN'

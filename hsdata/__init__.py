@@ -52,12 +52,12 @@ import logging
 from .core import (
     Career, Careers, Card, Cards, Deck, Decks,
     MODE_STANDARD, MODE_WILD, CAREERS, CARDS,
-    set_data_dir, set_main_language, get_career
+    set_data_dir, set_main_language, get_career, days_ago
 )
-from .hearthstats import HearthStatsDeck, HearthStatsDecks, days_ago
+from .hearthstats import HearthStatsDeck, HearthStatsDecks
 from .hsbox import HSBoxDeck, HSBoxDecks
 from .utils import (
-    diff_decks, gen_deck, decks_expired
+    diff_decks, gen_deck, decks_expired, cards_value, get_all_decks
 )
 
 logging.getLogger('scrapy').propagate = False
@@ -65,7 +65,7 @@ logging.getLogger('requests').propagate = False
 logging.basicConfig(level=logging.INFO)
 
 __title__ = 'hsdata'
-__version__ = '0.2.9'
+__version__ = '0.2.10'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'

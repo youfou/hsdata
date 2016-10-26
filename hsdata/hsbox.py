@@ -16,7 +16,10 @@ import scrapy
 import scrapy.utils.log
 from scrapy.crawler import CrawlerProcess
 
-from .core import Deck, Decks, CAREERS, DATE_TIME_FORMAT
+from .core import (
+    DATE_TIME_FORMAT,
+    Deck, Decks, CAREERS
+)
 
 # 该来源的标识
 SOURCE_NAME = 'HSBOX'
