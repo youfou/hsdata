@@ -6,15 +6,16 @@
 一些实用的小功能
 """
 
+import logging
 import os
 from collections import Counter
 from datetime import datetime, timedelta
 
 from .core import (
     MODE_STANDARD,
-    Deck, Decks,
-    days_ago
-)
+    Decks,
+    days_ago,
+    Career, CAREERS)
 from .hearthstats import HearthStatsDecks
 from .hsbox import HSBoxDecks
 
@@ -25,44 +26,17 @@ def diff_decks(*decks):
     :param decks: 两个或以上的卡组
     :return: 返回每个卡组特有的部分
     """
+
     intersection = decks[0].cards & decks[1].cards
     for deck in decks[2:]:
         intersection &= deck.cards
 
-    differs = dict()
+    differs = dict(intersection=intersection)
+
     for deck in decks:
         differs[deck] = deck.cards - intersection
 
     return differs
-
-
-def gen_deck(career, from_decks, mode=MODE_STANDARD):
-    """
-    根据给定的卡组合集生成指定职业和模式的新卡组
-    :param career: 职业
-    :param from_decks: 卡组合集
-    :param mode: 模式
-    :return: 新的卡组, 和参考用的卡组列表
-    """
-
-    if not isinstance(from_decks, Decks):
-        raise TypeError('应为 Decks 对象')
-
-    cards_stats, top_decks = from_decks.career_cards_stats(career, mode=mode)
-
-    cards = Counter()
-    for card, stats in cards_stats.items():
-        count = 2 if stats['avg_count'] >= 1.75 else 1
-        cards[card] = count
-        if sum(cards.values()) == 30:
-            break
-        elif sum(cards.values()) > 30:
-            cards.subtract([card])
-            break
-
-    new_deck = Deck()
-    new_deck.cards = cards
-    return new_deck, top_decks
 
 
 def decks_expired(decks, expired=timedelta(days=1)):
@@ -81,7 +55,7 @@ def decks_expired(decks, expired=timedelta(days=1)):
     return True
 
 
-def cards_value(from_decks, mode=MODE_STANDARD):
+def cards_value(decks, mode=MODE_STANDARD):
     """
     区分职业的单卡价值排名，可在纠结是否合成或拆解时作为参考
 
@@ -92,12 +66,12 @@ def cards_value(from_decks, mode=MODE_STANDARD):
     *_rank: 在当前职业所有卡牌中的 * 排名
     *_rank%: 在当前职业所有卡牌中的 * 排名百分比 (排名/卡牌数)
 
-    :param from_decks: 卡组合集，作为分析数据源
+    :param decks: 卡组合集，作为分析数据源
     :param mode: 模式
     :return: 单卡价值排名数据
     """
 
-    if not isinstance(from_decks, Decks):
+    if not isinstance(decks, Decks):
         raise TypeError('from_decks 须为 Decks 对象')
 
     total = 'total'
@@ -108,7 +82,7 @@ def cards_value(from_decks, mode=MODE_STANDARD):
     stats = dict()
     stats[total] = dict()
 
-    for deck in from_decks.search(mode=mode):
+    for deck in decks.search(mode=mode):
         career = deck.career
         if career not in stats:
             stats[career] = dict()
@@ -156,7 +130,7 @@ def cards_value(from_decks, mode=MODE_STANDARD):
 
 
 def get_all_decks(
-        hsn_email, hsn_password,
+        hsn_email=None, hsn_password=None,
         hsn_min_games=300, hsn_created_after=days_ago(30),
         expired=timedelta(days=1)
 ):
@@ -184,3 +158,166 @@ def get_all_decks(
     decks.extend(hsn)
 
     return decks
+
+
+class DeckGenerator:
+    def __init__(
+            self,
+            career, decks,
+            include=None, exclude=None,
+            mode=MODE_STANDARD):
+
+        """
+        通过若干包含游戏次数和胜率的卡组合集，找出其中高价值的卡牌，生成新的卡组(.cards)
+
+        :param career: 指定职业
+        :param decks: 来源卡组合集
+        :param include: 生成的新卡组中将包含这些卡，应为 dict 对象，key为卡牌，value为数量
+        :param exclude: 生成的新卡组中将排除这些卡，应为 dict 对象，key为卡牌，value为数量
+        :param mode: 指定模式
+        """
+
+        self._career = None
+        self.cards_stats = None
+        self.top_decks = None
+
+        self.career = career
+
+        if decks and not isinstance(decks, list):
+            raise TypeError('decks 应为 list')
+        self.decks = decks or list()
+
+        if include and not isinstance(include, dict):
+            raise TypeError('include 应为 dict')
+        self.include = include or Counter()
+
+        if exclude and not isinstance(exclude, dict):
+            raise TypeError('exclude 应为 dict')
+        self.exclude = exclude or Counter()
+
+        self.mode = mode
+
+        self.career_total_games = None
+        self._gen_cards_stats()
+
+    @property
+    def cards(self):
+
+        cards = Counter(self.include)
+
+        exclude = Counter(self.exclude)
+
+        for card, stats in self.cards_stats:
+            count = 2 if stats['avg_count'] > 1.5 else 1
+
+            if cards.get(card, 0) > count:
+                count = 1 if card.rarity == 'LEGENDARY' else 2
+
+            if card in exclude:
+                count -= exclude.get(card)
+                if count < 1:
+                    logging.info('排除卡牌: {}'.format(card.name))
+                    continue
+
+            games_percentage = stats['total_games'] / self.career_total_games
+            if card not in self.include and games_percentage < 0.05:
+                logging.info('排除冷门卡牌: {} (使用率 {:.2%})'.format(
+                    card.name, games_percentage))
+                continue
+
+            cards[card] = count
+
+            cards_count = sum(list(cards.values()))
+            if cards_count == 30:
+                break
+            elif cards_count > 30:
+                cards.subtract([card])
+                break
+
+        total_count = sum(cards.values())
+        if total_count < 30:
+            logging.warning('推荐卡牌数量不足，仅为 {} 张!'.format(total_count))
+
+        return Counter(dict(filter(lambda x: x[1] > 0, cards.items())))
+
+    @property
+    def career(self):
+        return self._career
+
+    @career.setter
+    # TODO: 考虑做成公共的
+    def career(self, value):
+        if not value:
+            raise ValueError('career 不可为空')
+        if isinstance(value, Career):
+            career = value
+        elif isinstance(value, str):
+            career = CAREERS.search(value)
+        else:
+            raise TypeError('career 不支持 {} 类型的数值'.format(type(value).__name__))
+
+        if career in (CAREERS.get('NEUTRAL'), CAREERS.get('DREAM')):
+            raise ValueError('不能为该职业: {}'.format(career.name))
+
+        if not career:
+            raise ValueError('未找到该职业: {}'.format(value))
+
+        self._career = career
+        logging.info('设置职业为: {}'.format(career.name))
+
+    def __setattr__(self, key, value):
+        super(DeckGenerator, self).__setattr__(key, value)
+        if key in ('career', 'decks', 'mode') and self.cards_stats:
+            self._gen_cards_stats()
+
+    def _gen_cards_stats(self):
+        decks = list(filter(lambda x: x.games, self.decks))
+        self.decks = Decks(decks)
+
+        self.career_total_games = sum(list(map(lambda x: x.games, self.decks.search(self.career))))
+
+        cards_stats, self.top_decks = self.decks.career_cards_stats(
+            career=self.career, mode=self.mode)
+
+        self.cards_stats = list(cards_stats.items())
+        self.cards_stats.sort(key=lambda x: x[1]['avg_win_rate'], reverse=True)
+
+    def add_include(self, card, count=1):
+        self.include.update({card: count})
+
+    def add_exclude(self, card, count=1):
+        self.exclude.update({card: count})
+
+    def remove_include(self, card, count=1):
+        self.include.subtract({card: count})
+
+    def remove_exclude(self, card, count=1):
+        self.exclude.subtract({card: count})
+
+
+def print_cards(cards, return_text_only=False, sep=' '):
+    """
+    但法力值从小到大打印卡牌列表
+    :param cards: 卡牌 list 或 Counter
+    :param return_text_only: 选项，仅返回文本
+    :param sep: 卡牌名称和数量之间的分隔符
+    """
+
+    if isinstance(cards, list):
+        cards = Counter(cards)
+    elif not isinstance(cards, Counter):
+        raise TypeError('cards 参数应为 list 或 Counter 类型')
+
+    cards = list(cards.items())
+    cards.sort(key=lambda x: x[0].name)
+    cards.sort(key=lambda x: x[0].cost or 0)
+
+    text = list()
+    for card, count in cards:
+        text.append('{}{}{}'.format(card.name, sep, count))
+    text = '\n'.join(text)
+
+    if return_text_only:
+        return text
+    else:
+        print(text)

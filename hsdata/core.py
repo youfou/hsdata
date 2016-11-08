@@ -142,7 +142,9 @@ class Careers(list):
                 if _all_keywords_in_text(keywords, hero):
                     return career
 
-        raise ValueError('找不到所需的职业: "{}"'.format(' '.join(keywords)))
+    @property
+    def basic(self):
+        return self[:9]
 
 
 class Card:
@@ -329,6 +331,7 @@ class Cards(list):
         :param in_name: 名称关键词
         :param in_text: 卡牌描述关键词
         :param career: 对应职业
+        :param cost: 卡牌的法力消耗值
         :param collectible: 是否可收集
         :param return_first: 选项，只返回首个匹配的卡牌
         :return: 根据 return_first 参数返回 单个职业/None 或 列表
@@ -376,15 +379,15 @@ class Deck:
     DECK_URL_TEMPLATE = None
 
     def __init__(self):
-        self.name = None
-        self.id = None
+        self.name = ''
+        self.id = ''
 
         self.career = None
         self.cards = Counter()
 
-        self.games = None
-        self.wins = None
-        self.draws = None
+        self.games = 0
+        self.wins = 0
+        self.draws = 0
 
     @property
     def win_rate(self):
@@ -465,13 +468,20 @@ class Deck:
 class Decks(list):
     deck_class = Deck
 
-    def __init__(self, json_path=None, auto_load=False, update_if_not_found=True, cards=None):
+    def __init__(
+            self, deck_list=None, json_path=None, auto_load=False, update_if_not_found=True, cards=None):
         """
+        :param deck_list: 一个 Deck 列表，用于直接转换为 Decks 对象
         :param cards: Cards 对象，用于将卡组内的卡牌ID转化为Card对象
         """
         super(Decks, self).__init__()
 
         self.source = self.deck_class.source
+
+        self._index = dict()
+
+        if deck_list:
+            self.extend(deck_list)
 
         if not json_path:
             json_path = os.path.join(DATA_DIR, 'DECKS_{}.json'.format(self.source))
@@ -483,8 +493,6 @@ class Decks(list):
             cards = CARDS
         self.cards = cards
         self.cards.load_if_empty()
-
-        self._index = dict()
 
         if auto_load:
             self.load(self.json_path)
@@ -603,7 +611,18 @@ class Decks(list):
             if win_rate_top_n > 0:
                 found = found[:win_rate_top_n]
 
-        return found
+        return Decks(found)
+
+    @property
+    def avg_win_rate(self):
+        total_games = 0
+        total_wins = 0
+        for deck in self:
+            total_games += deck.games or 0
+            total_wins += deck.wins or 0
+
+        if total_games:
+            return total_wins / total_games
 
     def career_cards_stats(
             self, career, mode=MODE_STANDARD,
@@ -616,7 +635,7 @@ class Decks(list):
         3. 统计这些卡牌在所有当前职业和模式卡组中的表现数据
 
         表现数据中包括
-        avg_count: 平均使用数量
+        avg_count: (在top_decks中的)平均使用数量
         avg_win_rate: 平均胜率(总胜率次数/总游戏次数)
         total_games: 总游戏次数
         used_in_decks: 用到该卡牌的卡组数
@@ -634,29 +653,26 @@ class Decks(list):
             min_games=min_games, win_rate_top_n=-1)
         top_decks = top_decks[:round(len(top_decks) * top_win_rate_percentage)]
 
-        top_cards = set()
-        for deck in top_decks:
-            top_cards.update(deck.cards)
-        top_cards = list(top_cards)
-
         "total_count, total_games, total_wins, used_in_decks, avg_count, avg_win_rate"
 
         cards_stats = dict()
-        for card in top_cards:
-            cards_stats[card] = dict(
-                total_count=0,
-                total_games=0,
-                total_wins=0,
-                used_in_decks=0,
-            )
+        for deck in top_decks:
+            for card, count in deck.cards.items():
+                if card not in cards_stats:
+                    cards_stats[card] = dict(
+                        total_count=0,
+                        total_games=0,
+                        total_wins=0,
+                        used_in_decks=0,
+                    )
+                cards_stats[card]['used_in_decks'] += 1
+                cards_stats[card]['total_count'] += count
 
         for deck in self.search(career=career, mode=mode):
             for card, count in deck.cards.items():
-                if card in top_cards:
-                    cards_stats[card]['total_count'] += count
+                if card in cards_stats:
                     cards_stats[card]['total_games'] += deck.games or 0
                     cards_stats[card]['total_wins'] += deck.wins or 0
-                    cards_stats[card]['used_in_decks'] += 1
 
         for card, stats in cards_stats.items():
             stats['avg_count'] = stats['total_count'] / stats['used_in_decks']
@@ -674,12 +690,6 @@ class Decks(list):
             decks.extend(ret)
             ret = decks
         return ret
-
-    def __repr__(self):
-        return '<{}: {}>'.format(
-            self.__class__.__name__,
-            super(Decks, self).__repr__()
-        )
 
 
 with open(os.path.join(PACKAGE_DIR, 'career_names.json')) as fp:

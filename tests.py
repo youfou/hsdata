@@ -109,7 +109,6 @@ class Tests(unittest.TestCase):
             self.assertEqual(deck.career, hsdata.CAREERS.get('SHAMAN'))
             self.assertEqual(deck.mode, hsdata.MODE_STANDARD)
             self.assertGreaterEqual(deck.win_rate, 0.5)
-            self.assertGreaterEqual(deck.users, 1000)
             self.assertGreaterEqual(deck.games, 10000)
             self.assertLessEqual(deck.win_rate, last_win_rate)
             last_win_rate = deck.win_rate
