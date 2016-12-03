@@ -34,7 +34,7 @@ MODE_WILD = 'WILD'
 
 DATE_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
-SOURCE_URL_CARDS = 'https://api.hearthstonejson.com/v1/'
+CARDS_SOURCE_URL = 'https://api.hearthstonejson.com/v1/'
 
 PACKAGE_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -176,8 +176,21 @@ class Card:
         self.targetingArrowText = None
         self.overload = None
         self.spellDamage = None
+        # 201612: 加基森版本新增了3个字段
+        self.classes = None
+        self.multiClassGroup = None
+        self.collectionText = None
 
-        self.career = None
+    @property
+    def career(self):
+        return CAREERS.get(self.playerClass)
+
+    @property
+    def careers(self):
+        if self.classes:
+            return list(map(lambda x: CAREERS.get(x), self.classes))
+        else:
+            return [self.career]
 
     def __repr__(self):
         return '<{}: {} ({})>'.format(self.__class__.__name__, self.name, self.id)
@@ -203,7 +216,7 @@ class Cards(list):
         super(Cards, self).__init__()
 
         if not json_path:
-            json_path = os.path.join(DATA_DIR, JSON_FILE_NAME_CARDS)
+            json_path = os.path.join(DATA_DIR, CARDS_JSON_FILE_NAME)
         self.json_path = json_path
 
         self._index = dict()
@@ -258,7 +271,6 @@ class Cards(list):
             for k, v in data.items():
                 setattr(card, k, v)
 
-            card.career = CAREERS.get(data['playerClass'])
             # HearthstoneJSON 中不可收集的卡牌没有设置 collectible 属性，添加该属性
             if card.collectible is None:
                 card.collectible = False
@@ -287,14 +299,14 @@ class Cards(list):
         s = requests.Session()
 
         if not hs_version_code:
-            r = s.get(SOURCE_URL_CARDS)
+            r = s.get(CARDS_SOURCE_URL)
             r.raise_for_status()
             hs_version_codes = re.findall(r'href="/v1/(\d+)/all/"', r.text)
             hs_version_code = max(list(map(int, hs_version_codes)))
             logging.info('找到最新的对应炉石版本号: {}'.format(hs_version_code))
 
         json_url = '{}{}/{}/cards.json'.format(
-            SOURCE_URL_CARDS, hs_version_code, MAIN_LANGUAGE)
+            CARDS_SOURCE_URL, hs_version_code, MAIN_LANGUAGE)
 
         logging.info('正在下载卡牌数据')
         r = s.get(json_url)
@@ -709,7 +721,7 @@ def set_main_language(language):
     :param language: deDE, enUS, esES, esMX, frFR, itIT, jaJP, koKR, plPL, ptBR, ruRU, thTH, zhCN, zhTW
     """
 
-    global MAIN_LANGUAGE, JSON_FILE_NAME_CARDS, CAREER_NAMES, CAREERS, CARDS
+    global MAIN_LANGUAGE, CARDS_JSON_FILE_NAME, CAREER_NAMES, CAREERS, CARDS
 
     CAREER_NAMES = CAREER_NAMES_ALL_LANGUAGES.get(language)
     if not CAREER_NAMES:
@@ -717,7 +729,7 @@ def set_main_language(language):
             ', '.join(CAREER_NAMES_ALL_LANGUAGES.keys())))
 
     MAIN_LANGUAGE = language
-    JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(language)
+    CARDS_JSON_FILE_NAME = 'CARDS_{}.json'.format(language)
     CAREERS = Careers()
     CARDS = Cards(lazy_load=True)
 
@@ -766,7 +778,7 @@ def days_ago(n):
 
 
 MAIN_LANGUAGE = 'zhCN'
-JSON_FILE_NAME_CARDS = 'CARDS_{}.json'.format(MAIN_LANGUAGE)
+CARDS_JSON_FILE_NAME = 'CARDS_{}.json'.format(MAIN_LANGUAGE)
 CAREER_NAMES = CAREER_NAMES_ALL_LANGUAGES.get(MAIN_LANGUAGE)
 
 CAREERS = Careers()

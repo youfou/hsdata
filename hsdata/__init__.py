@@ -66,7 +66,7 @@ logging.getLogger('requests').propagate = False
 logging.basicConfig(level=logging.INFO)
 
 __title__ = 'hsdata'
-__version__ = '0.2.11'
+__version__ = '0.2.12'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'

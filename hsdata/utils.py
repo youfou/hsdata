@@ -277,7 +277,7 @@ class DeckGenerator:
         self.career_total_games = sum(list(map(lambda x: x.games, self.decks.search(self.career))))
 
         cards_stats, self.top_decks = self.decks.career_cards_stats(
-            career=self.career, mode=self.mode)
+            career=self.career, mode=self.mode, top_win_rate_percentage=0.07)
 
         self.cards_stats = list(cards_stats.items())
         self.cards_stats.sort(key=lambda x: x[1]['avg_win_rate'], reverse=True)

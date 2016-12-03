@@ -50,7 +50,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(found), 1)
         card = cards.get(found[0].id)
         self.assertEqual(found[0], card)
-        self.assertEqual(cards.search(in_text='召唤 随从 随机 敌方 伤害').name, '飞刀杂耍者')
+        self.assertEqual(cards.search(in_text='在你召唤一个随从后 随机 敌方 伤害').name, '飞刀杂耍者')
         self.assertIsNone(cards.search('关门放狗', career='mage'))
         self.assertIsInstance(cards.search('海盗', return_first=False), list)
 
