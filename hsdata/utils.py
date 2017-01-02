@@ -5,7 +5,7 @@
 """
 一些实用的小功能
 """
-
+import csv
 import logging
 import os
 from collections import Counter
@@ -15,7 +15,7 @@ from .core import (
     MODE_STANDARD,
     Decks,
     days_ago,
-    Career, CAREERS)
+    Career, CAREERS, Cards)
 from .hearthstats import HearthStatsDecks
 from .hsbox import HSBoxDecks
 
@@ -143,19 +143,20 @@ def get_all_decks(
     :param expired: 过期时间，若载入的数据是次时间前获得的，则重新获取新数据
     :return: 返回 Decks 对象，包含所有数据源的卡组
     """
-    hsb = HSBoxDecks()
-    if decks_expired(hsb, expired):
-        hsb.update()
-
-    hsn = HearthStatsDecks()
-    if decks_expired(hsn, expired):
-        hsn.login(hsn_email, hsn_password)
-        hsn.search_online(min_games=hsn_min_games, created_after=hsn_created_after)
 
     decks = Decks()
 
+    hsb = HSBoxDecks()
+    if decks_expired(hsb, expired):
+        hsb.update()
     decks.extend(hsb)
-    decks.extend(hsn)
+
+    if hsn_email and hsn_password:
+        hsn = HearthStatsDecks()
+        if decks_expired(hsn, expired):
+            hsn.login(hsn_email, hsn_password)
+            hsn.search_online(min_games=hsn_min_games, created_after=hsn_created_after)
+        decks.extend(hsn)
 
     return decks
 
@@ -197,7 +198,7 @@ class DeckGenerator:
 
         self.mode = mode
 
-        self.career_total_games = None
+        self.top_decks_total_games = None
         self._gen_cards_stats()
 
     @property
@@ -219,8 +220,8 @@ class DeckGenerator:
                     logging.info('排除卡牌: {}'.format(card.name))
                     continue
 
-            games_percentage = stats['total_games'] / self.career_total_games
-            if card not in self.include and games_percentage < 0.05:
+            games_percentage = stats['total_games'] / self.top_decks_total_games
+            if card not in self.include and games_percentage < 0.1:
                 logging.info('排除冷门卡牌: {} (使用率 {:.2%})'.format(
                     card.name, games_percentage))
                 continue
@@ -274,10 +275,10 @@ class DeckGenerator:
         decks = list(filter(lambda x: x.games, self.decks))
         self.decks = Decks(decks)
 
-        self.career_total_games = sum(list(map(lambda x: x.games, self.decks.search(self.career))))
-
         cards_stats, self.top_decks = self.decks.career_cards_stats(
-            career=self.career, mode=self.mode, top_win_rate_percentage=0.07)
+            career=self.career, mode=self.mode, top_win_rate_percentage=0.1)
+
+        self.top_decks_total_games = sum(map(lambda x: x.games, self.top_decks))
 
         self.cards_stats = list(cards_stats.items())
         self.cards_stats.sort(key=lambda x: x[1]['avg_win_rate'], reverse=True)
@@ -295,7 +296,7 @@ class DeckGenerator:
         self.exclude.subtract({card: count})
 
 
-def print_cards(cards, return_text_only=False, sep=' '):
+def print_cards(cards, return_text_only=False, sep=' ', rarity=True):
     """
     但法力值从小到大打印卡牌列表
     :param cards: 卡牌 list 或 Counter
@@ -314,10 +315,49 @@ def print_cards(cards, return_text_only=False, sep=' '):
 
     text = list()
     for card, count in cards:
-        text.append('{}{}{}'.format(card.name, sep, count))
+        line = '{}{}{}'.format(card.name, sep, count)
+        if rarity and card.rarity not in ('FREE', 'COMMON'):
+            line = '({}) {}'.format(card.rarity[0], line)
+        text.append(line)
     text = '\n'.join(text)
 
     if return_text_only:
         return text
     else:
         print(text)
+
+
+def cards_to_csv(save_path, cards=None):
+
+    """
+    将卡牌保存为 CSV 文件，方便使用 Excel 等工具进行分析
+    :param cards: cards 对象
+    :param save_path: 保存路径，例如 cards.csv
+    """
+
+    if cards is None:
+        cards = Cards()
+
+    # 仅列出相对常用的字段
+    fields = [
+        'id', 'name', 'text', 'cost', 'overload', 'type', 'race',
+        'careers', 'multiClassGroup', 'set', 'collectible',
+        'rarity', 'dust', 'howToEarn', 'howToEarnGolden',
+        'health', 'attack', 'durability', 'spellDamage',
+    ]
+
+    with open(save_path, 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(fields)
+        for card in cards:
+            row = list()
+            for field in fields:
+                field = getattr(card, field)
+                if isinstance(field, (list, tuple, set)):
+                    field = ', '.join(list(map(str, field)))
+                elif isinstance(field, type(None)):
+                    field = ''
+                elif not isinstance(field, (str, int, float)):
+                    field = str(field)
+                row.append(field)
+            writer.writerow(row)

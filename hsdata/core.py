@@ -65,6 +65,9 @@ class Career:
             self.name,
             self.class_name)
 
+    def __str__(self):
+        return self.name
+
     def __eq__(self, other):
         if isinstance(other, Career):
             return self.class_name == other.class_name
@@ -189,8 +192,10 @@ class Card:
     def careers(self):
         if self.classes:
             return list(map(lambda x: CAREERS.get(x), self.classes))
-        else:
+        elif self.career:
             return [self.career]
+        else:
+            return list()
 
     def __repr__(self):
         return '<{}: {} ({})>'.format(self.__class__.__name__, self.name, self.id)
@@ -591,7 +596,7 @@ class Decks(list):
     def search(
             self,
             career=None,
-            mode=None,
+            mode=MODE_STANDARD,
             min_win_rate=0.0,
             min_games=0,
             win_rate_top_n=None,
@@ -626,15 +631,19 @@ class Decks(list):
         return Decks(found)
 
     @property
-    def avg_win_rate(self):
-        total_games = 0
-        total_wins = 0
-        for deck in self:
-            total_games += deck.games or 0
-            total_wins += deck.wins or 0
+    def total_games(self):
+        return sum(map(lambda x: x.games or 0, self))
 
-        if total_games:
-            return total_wins / total_games
+    @property
+    def total_wins(self):
+        return sum(map(lambda x: x.wins or 0, self))
+
+    @property
+    def avg_win_rate(self):
+        try:
+            return self.total_wins / self.total_games
+        except ZeroDivisionError:
+            pass
 
     def career_cards_stats(
             self, career, mode=MODE_STANDARD,
@@ -644,7 +653,7 @@ class Decks(list):
         统计指定职业和模式的卡牌数据，可在组建卡组时作为参考
         1. 选取当前职业和模式中符合 top_win_rate_percentage, min_games 条件的所有卡组
         2. 选取上述卡组中所用到的卡牌
-        3. 统计这些卡牌在所有当前职业和模式卡组中的表现数据
+        3. 统计这些卡牌在上述卡组中的表现数据
 
         表现数据中包括
         avg_count: (在top_decks中的)平均使用数量
@@ -655,7 +664,7 @@ class Decks(list):
         :param career: 职业
         :param mode: 模式，可以是 MODE_STANDARD 或 MODE_WILD
         :param min_games: 最少游戏次数
-        :param top_win_rate_percentage: 选取胜率最高的 n% 卡组，0.05 表示 5%
+        :param top_win_rate_percentage: 选取胜率最高的 n% 卡组，0.1 表示 10%
         """
 
         career = get_career(career)
@@ -679,18 +688,14 @@ class Decks(list):
                     )
                 cards_stats[card]['used_in_decks'] += 1
                 cards_stats[card]['total_count'] += count
-
-        for deck in self.search(career=career, mode=mode):
-            for card, count in deck.cards.items():
-                if card in cards_stats:
-                    cards_stats[card]['total_games'] += deck.games or 0
-                    cards_stats[card]['total_wins'] += deck.wins or 0
+                cards_stats[card]['total_games'] += deck.games or 0
+                cards_stats[card]['total_wins'] += deck.wins or 0
 
         for card, stats in cards_stats.items():
             stats['avg_count'] = stats['total_count'] / stats['used_in_decks']
-            try:
+            if stats['total_games']:
                 stats['avg_win_rate'] = stats['total_wins'] / stats['total_games']
-            except ZeroDivisionError:
+            else:
                 stats['avg_win_rate'] = None
 
         return cards_stats, top_decks

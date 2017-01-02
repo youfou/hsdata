@@ -58,7 +58,8 @@ from .hearthstats import HearthStatsDeck, HearthStatsDecks
 from .hsbox import HSBoxDeck, HSBoxDecks
 from .utils import (
     DeckGenerator,
-    diff_decks, decks_expired, cards_value, get_all_decks, print_cards
+    diff_decks, decks_expired, get_all_decks,
+    cards_value, print_cards, cards_to_csv
 )
 
 logging.getLogger('scrapy').propagate = False
@@ -66,7 +67,7 @@ logging.getLogger('requests').propagate = False
 logging.basicConfig(level=logging.INFO)
 
 __title__ = 'hsdata'
-__version__ = '0.2.12'
+__version__ = '0.2.15'
 __author__ = 'Youfou'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2016 Youfou'
