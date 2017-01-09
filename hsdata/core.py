@@ -75,6 +75,9 @@ class Career:
     def __hash__(self):
         return hash('<__hsdata.Career__: class_name="{}">'.format(self.class_name))
 
+    def can_have(self, card):
+        return self in card.careers
+
 
 class Careers(list):
     """
@@ -192,10 +195,19 @@ class Card:
     def careers(self):
         if self.classes:
             return list(map(lambda x: CAREERS.get(x), self.classes))
+        elif self.career == CAREERS.get('NEUTRAL'):
+            return CAREERS.basic
         elif self.career:
             return [self.career]
         else:
             return list()
+
+    @property
+    def mode(self):
+        if self.set in EXPIRED_SETS:
+            return MODE_WILD
+        else:
+            return MODE_STANDARD
 
     def __repr__(self):
         return '<{}: {} ({})>'.format(self.__class__.__name__, self.name, self.id)
@@ -778,6 +790,17 @@ def get_career(keywords_or_career=None):
     return career
 
 
+def can_have(career, card):
+    """
+    判断一个职业是否可拥有一张卡牌
+    :param career: 职业
+    :param card: 卡牌
+    :return: True 表示可拥有；False 反之
+    """
+    career = get_career(career)
+    return career in card.careers
+
+
 def days_ago(n):
     return datetime.today() - timedelta(days=n)
 
@@ -791,4 +814,4 @@ CARDS = Cards(lazy_load=True)
 
 # 用于判断卡组模式：若卡组中包含已过期卡包的卡牌，则认为是狂野模式
 # 这个列表需要跟随游戏不断更新！
-EXPIRED_SETS = ('REWARD', 'NAXX', 'GVG', 'TB')
+EXPIRED_SETS = ('REWARD', 'NAXX', 'GVG')

@@ -52,6 +52,7 @@ class HSBoxDeck(Deck):
         self.ranked_wins = 0
         self.users = 0
         self.created_at = None
+        self.duration = None
 
     @property
     def ranked_win_rate(self):
@@ -96,6 +97,7 @@ class HSBoxDecks(Decks):
 
         # 卡组的主要信息
         url_data = 'http://hs.gameyw.netease.com/json/pm20835.js'
+        url_duration = 'http://hsimg.gameyw.netease.com/pm19022.js'
 
         rp_json_in_js = re.compile(r'var\s+(\w+)\s*=\s*(.+);')
         session = requests.Session()
@@ -118,6 +120,7 @@ class HSBoxDecks(Decks):
             return json.loads(m.group(2))
 
         decks_data = get_json(url_data)
+        decks_duration = get_json(url_duration)
 
         # 清除原有的数据
         self.clear()
@@ -128,15 +131,19 @@ class HSBoxDecks(Decks):
             deck.name = data.get('title')
             deck.id = data.get('md5key')
 
-            # 炉石盒子BUG，该卡组引用了一张不存在的卡牌ID
-            if deck.id == 'fdc3c6fdde8b98ed1596cac5d1ad42e6':
-                continue
-
             deck.career = CAREER_MAP.get(get_num(data, 'job'))
+
+            skip_this_deck = False
 
             for card_count in data['deckString']['toPage'].split(','):
                 card_id, count = card_count.split(':')
                 card = self.cards.get(card_id)
+
+                # 炉石盒子的BUG，一些卡组会引用不存在，不可收集，或职业错误的卡牌
+                if not card or not card.collectible or deck.career not in card.careers:
+                    skip_this_deck = True
+                    break
+
                 if not card:
                     raise ValueError('缺少卡牌: {}'.format(card_id))
                 count = int(count)
@@ -147,7 +154,15 @@ class HSBoxDecks(Decks):
                     raise ValueError('{} 的卡牌数量为 {}，应为 30'.format(
                         deck, num_of_cards))
 
+            if skip_this_deck:
+                logging.debug('跳过错误卡组: {}'.format(deck.name))
+                continue
+
             deck.created_at = datetime.strptime(data.get('time'), '%Y-%m-%d %H:%M:%S')
+
+            duration = decks_duration.get(deck.id)
+            if duration:
+                deck.duration = duration.get('ctime')
 
             # 加入到卡组合集
             self.append(deck)

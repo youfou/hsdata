@@ -113,6 +113,19 @@ class Tests(unittest.TestCase):
             self.assertLessEqual(deck.win_rate, last_win_rate)
             last_win_rate = deck.win_rate
 
+    def test_can_have(self):
+        cards = hsdata.Cards()
+
+        self.assertTrue(hsdata.can_have('萨满', cards.search('叫嚣的中士')))
+        self.assertTrue(hsdata.CAREERS.search('萨满').can_have(cards.search('叫嚣的中士')))
+        self.assertTrue(hsdata.can_have('猎人', cards.search('关门放狗')))
+        self.assertTrue(hsdata.CAREERS.search('猎人').can_have(cards.search('关门放狗')))
+
+        self.assertFalse(hsdata.can_have('萨满', cards.search('关门放狗')))
+        self.assertFalse(hsdata.CAREERS.search('萨满').can_have(cards.search('关门放狗')))
+        self.assertFalse(hsdata.can_have('猎人', cards.search('玉莲帮密探')))
+        self.assertFalse(hsdata.CAREERS.search('猎人').can_have(cards.search('玉莲帮密探')))
+
 
 if __name__ == '__main__':
     unittest.main()
